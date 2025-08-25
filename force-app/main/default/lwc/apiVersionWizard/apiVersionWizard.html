@@ -1,0 +1,55 @@
+﻿<template>
+  <lightning-card title="API Version Updater" icon-name="utility:retouch">
+    <div class="slds-p-around_medium">
+      <div class="slds-text-color_weak slds-m-bottom_small">
+        Choose the version threshold to treat as out-of-date and the version to update everything to.
+      </div>
+
+      <lightning-layout multiple-rows>
+        <lightning-layout-item size="12" medium-device-size="6" class="slds-p-right_small">
+          <lightning-input type="number" name="threshold" label="Consider out-of-date if API version is less than"
+            step="0.1" min="1" max="200" value={threshold} onchange={handleThresholdChange}>
+          </lightning-input>
+          <div class="slds-text-title_caps slds-m-top_x-small slds-m-bottom_x-small">Quick picks</div>
+          <div class="chip-row">
+            <template for:each={quickThresholds} for:item="opt">
+              <lightning-button key={opt} variant="base" label={opt} class="chip" onclick={handlePickThreshold}></lightning-button>
+            </template>
+          </div>
+        </lightning-layout-item>
+
+        <lightning-layout-item size="12" medium-device-size="6" class="slds-p-left_small">
+          <lightning-input type="number" name="target" label="Update all to API version"
+            step="0.1" min="1" max="200" value={target} onchange={handleTargetChange}>
+          </lightning-input>
+          <div class="slds-text-title_caps slds-m-top_x-small slds-m-bottom_x-small">Quick picks</div>
+          <div class="chip-row">
+            <template for:each={quickTargets} for:item="opt">
+              <lightning-button key={opt} variant="base" label={opt} class="chip" onclick={handlePickTarget}></lightning-button>
+            </template>
+          </div>
+        </lightning-layout-item>
+
+        <lightning-layout-item size="12" class="slds-m-top_medium">
+          <lightning-input type="toggle" label="Exclude managed-package components (namespaced)"
+            message-toggle-active="Excluding" message-toggle-inactive="Including"
+            checked={excludeManaged} onchange={handleExcludeManagedChange}>
+          </lightning-input>
+        </lightning-layout-item>
+
+        <lightning-layout-item size="12" class="slds-m-top_medium">
+          <lightning-button label="Reset" onclick={handleReset} class="slds-m-right_small"></lightning-button>
+          <lightning-button variant="brand" label="Check Now" title="Validate and start the scan"
+            onclick={handleSubmit} disabled={isSubmitDisabled}></lightning-button>
+          <template if:true={error}>
+            <div class="slds-text-color_error slds-m-top_small">{error}</div>
+          </template>
+        </lightning-layout-item>
+      </lightning-layout>
+
+      <div class="slds-m-top_large slds-text-color_weak slds-text-body_small">
+        Scope: Apex Classes, Apex Triggers, Visualforce Pages & Components, Aura bundles, and LWC bundles.
+      </div>
+    </div>
+  </lightning-card>
+</template>

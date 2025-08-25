@@ -1,0 +1,34 @@
+﻿<template>
+  <div class="slds-m-top_large">
+    <lightning-layout vertical-align="center">
+      <lightning-layout-item flexibility="shrink">
+        <lightning-button-group>
+          <lightning-button label="Prev" onclick={prevPage} disabled={isPrevDisabled}></lightning-button>
+          <lightning-button label="Next" onclick={nextPage} disabled={isNextDisabled}></lightning-button>
+        </lightning-button-group>
+      </lightning-layout-item>
+      <lightning-layout-item class="slds-m-left_small">
+        <span class="slds-text-body_small">Page {pageNumber} / {totalPages} â€” {total} total</span>
+      </lightning-layout-item>
+      <lightning-layout-item class="slds-m-left_auto">
+        <lightning-button variant="brand" label="Update Versions" onclick={updateSelected} disabled={updateDisabled}></lightning-button>
+      </lightning-layout-item>
+    </lightning-layout>
+
+    <lightning-datatable
+      key-field="id"
+      data={rows}
+      columns={columns}
+      onrowselection={handleSelection}
+      hide-checkbox-column={false}
+      show-row-number-column>
+    </lightning-datatable>
+
+    <template if:true={updateMessage}>
+      <div class="slds-m-top_small slds-text-color_success">{updateMessage}</div>
+    </template>
+    <template if:true={error}>
+      <div class="slds-m-top_small slds-text-color_error">{error}</div>
+    </template>
+  </div>
+</template>

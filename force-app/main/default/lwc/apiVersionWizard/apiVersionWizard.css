@@ -1,0 +1,2 @@
+﻿.chip-row { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+.chip { margin-right: 0.25rem; margin-bottom: 0.25rem; }

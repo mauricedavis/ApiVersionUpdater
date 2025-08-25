@@ -1,0 +1,26 @@
+﻿<template>
+  <lightning-card title="API Version Updater" icon-name="utility:apps_admin">
+    <div class="slds-p-around_medium">
+      <c-api-version-wizard onstartcheck={handleStartCheck}></c-api-version-wizard>
+
+      <template if:true={loading}>
+        <div class="slds-m-top_large">
+          <lightning-spinner alternative-text="Checking..." size="medium"></lightning-spinner>
+        </div>
+      </template>
+
+      <template if:true={showResults}>
+        <c-api-version-results
+          threshold={threshold}
+          target={target}
+          exclude-managed={excludeManaged}
+          page-size="50">
+        </c-api-version-results>
+      </template>
+
+      <template if:true={error}>
+        <div class="slds-m-top_large slds-text-color_error">{error}</div>
+      </template>
+    </div>
+  </lightning-card>
+</template>
