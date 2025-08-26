@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="slds-m-top_large">
     <lightning-layout vertical-align="center">
       <lightning-layout-item flexibility="shrink">
@@ -20,8 +20,8 @@
       data={rows}
       columns={columns}
       onrowselection={handleSelection}
-      hide-checkbox-column={false}
-      show-row-number-column>
+      hide-checkbox-column="false"
+      show-row-number-column="true">
     </lightning-datatable>
 
     <template if:true={updateMessage}>

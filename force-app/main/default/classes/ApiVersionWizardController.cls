@@ -1,4 +1,4 @@
-﻿public with sharing class ApiVersionWizardController {
+public with sharing class ApiVersionWizardController {
 
     public class CountsDTO {
         @AuraEnabled public Integer apexClasses;
@@ -31,7 +31,6 @@
     public class UpdateRes { @AuraEnabled public String id; @AuraEnabled public String type; @AuraEnabled public Boolean success; @AuraEnabled public String message; }
     public class UpdateBatchResult { @AuraEnabled public List<UpdateRes> results; }
 
-    // ---- Public ----
     @AuraEnabled(cacheable=true)
     public static CountsDTO getCounts(Decimal threshold, Decimal target, Boolean excludeManaged) {
         validateTT(threshold, target);
@@ -60,7 +59,6 @@
         List<ItemDTO> all = new List<ItemDTO>();
         String ns = excludeManaged ? ' AND NamespacePrefix = null' : '';
 
-        // Use dynamic SOQL so we can append the namespace filter cleanly
         String q1 = 'SELECT Id, Name, ApiVersion, NamespacePrefix FROM ApexClass WHERE ApiVersion < :threshold' + ns + ' ORDER BY Name LIMIT 2000';
         for (ApexClass a : Database.query(q1)) all.add(item('ApexClass', a.Id, a.Name, a.ApiVersion, a.NamespacePrefix));
 
@@ -110,7 +108,6 @@
         return br;
     }
 
-    // ---- Helpers ----
     private static void validateTT(Decimal threshold, Decimal target) {
         validateThreshold(threshold);
         if (target == null || target <= 0) throw new AuraHandledException('Invalid target.');
@@ -126,14 +123,18 @@
 
     public class Comparator implements System.Comparator<ItemDTO> {
         public Integer compare(ItemDTO a, ItemDTO b) {
-            Integer t = a.type.compareToIgnoreCase(b.type);
+            String at = a.type == null ? '' : a.type.toLowerCase();
+            String bt = b.type == null ? '' : b.type.toLowerCase();
+            Integer t = at.compareTo(bt);
             if (t != 0) return t;
-            return a.name.compareToIgnoreCase(b.name);
+            String an = a.name == null ? '' : a.name.toLowerCase();
+            String bn = b.name == null ? '' : b.name.toLowerCase();
+            return an.compareTo(bn);
         }
     }
 
     private static String apiVer() { return 'v63.0'; }
-    private static String baseUrl() { return URL.getSalesforceBaseUrl().toExternalForm(); }
+    private static String baseUrl() { return URL.getOrgDomainUrl().toExternalForm(); }
 
     private static Map<String,Object> toolingQuery(String soql) {
         String endpoint = baseUrl() + '/services/data/' + apiVer() + '/tooling/query/?q=' + EncodingUtil.urlEncode(soql, 'UTF-8');
@@ -156,23 +157,6 @@
         return Integer.valueOf(String.valueOf(total));
     }
 
-    private static List<ItemDTO> toolingItems(String type, String soql) {
-        List<ItemDTO> out = new List<ItemDTO>();
-        Map<String,Object> json = toolingQuery(soql);
-        List<Object> recs = (List<Object>) json.get('records');
-        if (recs != null) {
-            for (Object o : recs) {
-                Map<String,Object> m = (Map<String,Object>) o;
-                String id = (String) m.get('Id');
-                String name = (String) m.get('DeveloperName');
-                Decimal ver = (m.get('ApiVersion') == null) ? 0 : Decimal.valueOf(String.valueOf(m.get('ApiVersion')));
-                String ns = (String) m.get('NamespacePrefix');
-                out.add(item(type, (Id) id, name, ver, ns));
-            }
-        }
-        return out;
-    }
-
     private static Boolean toolingUpdate(String type, String id, Decimal target) {
         String endpoint = baseUrl() + '/services/data/' + apiVer() + '/tooling/sobjects/' + type + '/' + id;
         HttpRequest req = new HttpRequest();
@@ -184,7 +168,6 @@
         Integer sc = res.getStatusCode();
         if (sc == 204 || sc == 200) return true;
 
-        // Try parse common error format
         try {
             Object parsed = JSON.deserializeUntyped(res.getBody());
             if (parsed instanceof List<Object>) {
