@@ -296,7 +296,7 @@ public with sharing class InventoryService {
         @AuraEnabled public Decimal compliancePercentage;
     }
     
-    @AuraEnabled(cacheable=true)
+    @AuraEnabled
     public static ComplianceMetricsDto getComplianceMetrics(Decimal targetApiVersion, String scopePolicy) {
         ComplianceMetricsDto metrics = new ComplianceMetricsDto();
         metrics.targetApiVersion = targetApiVersion;

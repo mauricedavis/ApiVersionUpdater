@@ -40,7 +40,7 @@ public with sharing class ApiVersionUpdaterController {
         return InventoryService.getVersionDistribution(artifactType);
     }
     
-    @AuraEnabled(cacheable=true)
+    @AuraEnabled
     public static InventoryService.ComplianceMetricsDto getComplianceMetrics(Decimal targetApiVersion, String scopePolicy) {
         return InventoryService.getComplianceMetrics(targetApiVersion, scopePolicy);
     }

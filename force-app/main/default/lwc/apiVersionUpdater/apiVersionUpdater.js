@@ -160,13 +160,21 @@ export default class ApiVersionUpdater extends LightningElement {
     
     async loadComplianceMetrics() {
         try {
-            const targetVersion = parseFloat(this.settings.targetApiVersion);
+            const targetVersionStr = this.settings.targetApiVersion || '65.0';
+            const targetVersion = parseFloat(targetVersionStr);
+            const scopePolicy = this.settings.scopePolicy || 'CustomOnly';
+            
+            console.log('Loading compliance metrics with target:', targetVersion, 'scope:', scopePolicy);
+            
             this.complianceMetrics = await getComplianceMetrics({ 
                 targetApiVersion: targetVersion,
-                scopePolicy: this.settings.scopePolicy 
+                scopePolicy: scopePolicy 
             });
+            
+            console.log('Compliance metrics loaded:', this.complianceMetrics);
         } catch (err) {
             console.error('Error loading compliance metrics:', err);
+            this.complianceMetrics = null;
         }
     }
 
