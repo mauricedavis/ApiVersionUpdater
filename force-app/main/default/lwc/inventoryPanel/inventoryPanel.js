@@ -17,6 +17,9 @@ export default class InventoryPanel extends LightningElement {
     ];
 
     get hasComplianceData() {
+        console.log('inventoryPanel - complianceMetrics:', this.complianceMetrics);
+        console.log('inventoryPanel - versionDistribution:', this.versionDistribution);
+        console.log('inventoryPanel - targetVersion:', this.targetVersion);
         return this.complianceMetrics && this.complianceMetrics.totalComponents > 0;
     }
 

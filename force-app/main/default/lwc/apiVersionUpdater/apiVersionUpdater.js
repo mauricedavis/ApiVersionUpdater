@@ -129,6 +129,8 @@ export default class ApiVersionUpdater extends LightningElement {
         this.error = null;
 
         try {
+            console.log('Starting loadInitialData...');
+            
             const [orgCtx, savedSettings, versions, types, counts, scans] = await Promise.all([
                 getOrgContext(),
                 getSettings(),
@@ -138,6 +140,8 @@ export default class ApiVersionUpdater extends LightningElement {
                 getRecentScans({ limitCount: 10 })
             ]);
 
+            console.log('Initial data loaded:', { orgCtx, savedSettings, counts });
+
             this.orgContext = orgCtx;
             this.settings = { ...this.settings, ...savedSettings };
             this.apiVersions = versions;
@@ -145,10 +149,11 @@ export default class ApiVersionUpdater extends LightningElement {
             this.inventoryCounts = counts;
             this.recentScans = scans;
 
-            await Promise.all([
-                this.loadVersionDistribution('ApexClass'),
-                this.loadComplianceMetrics()
-            ]);
+            console.log('Settings after merge:', this.settings);
+            console.log('Inventory counts:', this.inventoryCounts);
+
+            await this.loadVersionDistribution('ApexClass');
+            await this.loadComplianceMetrics();
 
         } catch (err) {
             this.error = this.extractErrorMessage(err);
@@ -173,16 +178,24 @@ export default class ApiVersionUpdater extends LightningElement {
             
             console.log('Compliance metrics loaded:', this.complianceMetrics);
         } catch (err) {
-            console.error('Error loading compliance metrics:', err);
+            const errorMsg = err?.body?.message || err?.message || JSON.stringify(err);
+            console.error('Error loading compliance metrics:', errorMsg);
+            this.showToast('Compliance Metrics Error', errorMsg, 'error');
             this.complianceMetrics = null;
         }
     }
 
     async loadVersionDistribution(artifactType) {
         try {
-            this.versionDistribution = await getVersionDistribution({ artifactType });
+            console.log('Loading version distribution for:', artifactType);
+            const distribution = await getVersionDistribution({ artifactType });
+            console.log('Version distribution loaded:', distribution);
+            this.versionDistribution = distribution;
         } catch (err) {
-            console.error('Error loading version distribution:', err);
+            const errorMsg = err?.body?.message || err?.message || JSON.stringify(err);
+            console.error('Error loading version distribution:', errorMsg);
+            this.showToast('Version Distribution Error', errorMsg, 'error');
+            this.versionDistribution = {};
         }
     }
 

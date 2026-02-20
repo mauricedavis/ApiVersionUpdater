@@ -262,14 +262,19 @@ public with sharing class InventoryService {
     public static Map<String, Integer> getVersionDistribution(String artifactType) {
         Map<String, Integer> distribution = new Map<String, Integer>();
         
-        String query = 'SELECT ApiVersion, COUNT(Id) cnt FROM ' + 
+        String query = 'SELECT ApiVersion FROM ' + 
                        String.escapeSingleQuotes(artifactType) + 
-                       ' WHERE NamespacePrefix = null GROUP BY ApiVersion ORDER BY ApiVersion DESC';
+                       ' WHERE NamespacePrefix = null LIMIT 10000';
         
-        for (AggregateResult ar : Database.query(query)) {
-            Decimal version = (Decimal) ar.get('ApiVersion');
-            Integer count = (Integer) ar.get('cnt');
-            distribution.put(String.valueOf(version), count);
+        for (SObject record : Database.query(query)) {
+            Decimal version = (Decimal) record.get('ApiVersion');
+            String versionKey = String.valueOf(version);
+            
+            if (distribution.containsKey(versionKey)) {
+                distribution.put(versionKey, distribution.get(versionKey) + 1);
+            } else {
+                distribution.put(versionKey, 1);
+            }
         }
         
         return distribution;
@@ -324,21 +329,20 @@ public with sharing class InventoryService {
             typeMetrics.compliant = 0;
             typeMetrics.nonCompliant = 0;
             
-            String query = 'SELECT ApiVersion, COUNT(Id) cnt FROM ' + 
+            String query = 'SELECT ApiVersion FROM ' + 
                            String.escapeSingleQuotes(artifactType) + 
                            namespaceCondition + 
-                           ' GROUP BY ApiVersion';
+                           ' LIMIT 10000';
             
-            for (AggregateResult ar : Database.query(query)) {
-                Decimal version = (Decimal) ar.get('ApiVersion');
-                Integer count = (Integer) ar.get('cnt');
+            for (SObject record : Database.query(query)) {
+                Decimal version = (Decimal) record.get('ApiVersion');
                 
-                typeMetrics.total += count;
+                typeMetrics.total += 1;
                 
                 if (version >= targetApiVersion) {
-                    typeMetrics.compliant += count;
+                    typeMetrics.compliant += 1;
                 } else {
-                    typeMetrics.nonCompliant += count;
+                    typeMetrics.nonCompliant += 1;
                 }
                 
                 if (version < metrics.oldestVersion) {
@@ -350,7 +354,7 @@ public with sharing class InventoryService {
                 
                 String versionKey = String.valueOf(version);
                 Integer existing = metrics.versionBreakdown.get(versionKey);
-                metrics.versionBreakdown.put(versionKey, (existing != null ? existing : 0) + count);
+                metrics.versionBreakdown.put(versionKey, (existing != null ? existing : 0) + 1);
             }
             
             typeMetrics.compliancePercentage = typeMetrics.total > 0 
@@ -391,15 +395,20 @@ public with sharing class InventoryService {
         for (String artifactType : types) {
             Map<String, Integer> distribution = new Map<String, Integer>();
             
-            String query = 'SELECT ApiVersion, COUNT(Id) cnt FROM ' + 
+            String query = 'SELECT ApiVersion FROM ' + 
                            String.escapeSingleQuotes(artifactType) + 
                            namespaceCondition + 
-                           ' GROUP BY ApiVersion ORDER BY ApiVersion DESC';
+                           ' LIMIT 10000';
             
-            for (AggregateResult ar : Database.query(query)) {
-                Decimal version = (Decimal) ar.get('ApiVersion');
-                Integer count = (Integer) ar.get('cnt');
-                distribution.put(String.valueOf(version), count);
+            for (SObject record : Database.query(query)) {
+                Decimal version = (Decimal) record.get('ApiVersion');
+                String versionKey = String.valueOf(version);
+                
+                if (distribution.containsKey(versionKey)) {
+                    distribution.put(versionKey, distribution.get(versionKey) + 1);
+                } else {
+                    distribution.put(versionKey, 1);
+                }
             }
             
             allDistributions.put(artifactType, distribution);
