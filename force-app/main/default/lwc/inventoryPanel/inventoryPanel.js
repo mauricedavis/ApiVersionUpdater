@@ -4,6 +4,8 @@ export default class InventoryPanel extends LightningElement {
     @api inventoryCounts = {};
     @api versionDistribution = {};
     @api targetVersion = '65.0';
+    @api scopePolicy = 'CustomOnly';
+    @api complianceMetrics = null;
 
     @track selectedDistributionType = 'ApexClass';
 
@@ -14,37 +16,116 @@ export default class InventoryPanel extends LightningElement {
         { label: 'Visualforce Components', value: 'ApexComponent' }
     ];
 
-    get countCards() {
-        return [
-            {
-                type: 'ApexClass',
-                label: 'Apex Classes',
-                count: this.inventoryCounts.ApexClass || 0,
-                icon: 'utility:apex'
-            },
-            {
-                type: 'ApexTrigger',
-                label: 'Apex Triggers',
-                count: this.inventoryCounts.ApexTrigger || 0,
-                icon: 'utility:flow'
-            },
-            {
-                type: 'ApexPage',
-                label: 'VF Pages',
-                count: this.inventoryCounts.ApexPage || 0,
-                icon: 'utility:page'
-            },
-            {
-                type: 'ApexComponent',
-                label: 'VF Components',
-                count: this.inventoryCounts.ApexComponent || 0,
-                icon: 'utility:component_customization'
-            }
-        ];
+    get hasComplianceData() {
+        return this.complianceMetrics && this.complianceMetrics.totalComponents > 0;
+    }
+
+    get compliancePercentage() {
+        if (!this.complianceMetrics) return 0;
+        return Math.round(this.complianceMetrics.compliancePercentage);
+    }
+
+    get complianceRingStyle() {
+        const percentage = this.compliancePercentage;
+        const degrees = (percentage / 100) * 360;
+        const color = this.getComplianceColor(percentage);
+        
+        if (percentage <= 50) {
+            return `background: conic-gradient(${color} ${degrees}deg, #e0e5ee ${degrees}deg);`;
+        } else {
+            return `background: conic-gradient(${color} ${degrees}deg, #e0e5ee ${degrees}deg);`;
+        }
+    }
+
+    get complianceTextColor() {
+        const percentage = this.compliancePercentage;
+        if (percentage >= 80) return 'compliance-text-success';
+        if (percentage >= 50) return 'compliance-text-warning';
+        return 'compliance-text-error';
+    }
+
+    getComplianceColor(percentage) {
+        if (percentage >= 80) return '#2e844a';
+        if (percentage >= 50) return '#ff9a3c';
+        return '#c23934';
+    }
+
+    get complianceStatusLabel() {
+        const percentage = this.compliancePercentage;
+        if (percentage >= 90) return 'Excellent';
+        if (percentage >= 80) return 'Good';
+        if (percentage >= 60) return 'Fair';
+        if (percentage >= 40) return 'Needs Work';
+        return 'Critical';
+    }
+
+    get complianceStatusClass() {
+        const percentage = this.compliancePercentage;
+        if (percentage >= 80) return 'slds-badge slds-badge_success';
+        if (percentage >= 50) return 'slds-badge slds-badge_warning';
+        return 'slds-badge slds-badge_error';
+    }
+
+    get typeComplianceCards() {
+        if (!this.complianceMetrics || !this.complianceMetrics.byType) return [];
+        
+        const typeLabels = {
+            'ApexClass': 'Apex Classes',
+            'ApexTrigger': 'Apex Triggers',
+            'ApexPage': 'VF Pages',
+            'ApexComponent': 'VF Components'
+        };
+
+        const typeIcons = {
+            'ApexClass': 'utility:apex',
+            'ApexTrigger': 'utility:flow',
+            'ApexPage': 'utility:page',
+            'ApexComponent': 'utility:component_customization'
+        };
+
+        return Object.entries(this.complianceMetrics.byType).map(([type, data]) => {
+            const pct = Math.round(data.compliancePercentage);
+            return {
+                type,
+                label: typeLabels[type] || type,
+                icon: typeIcons[type] || 'utility:apex',
+                total: data.total,
+                compliant: data.compliant,
+                nonCompliant: data.nonCompliant,
+                percentage: pct,
+                progressStyle: `width: ${pct}%;`,
+                progressClass: pct >= 80 ? 'progress-success' : (pct >= 50 ? 'progress-warning' : 'progress-error'),
+                statusIcon: pct >= 80 ? 'utility:success' : (pct >= 50 ? 'utility:warning' : 'utility:error'),
+                statusVariant: pct >= 80 ? 'success' : (pct >= 50 ? 'warning' : 'error')
+            };
+        });
     }
 
     get totalComponents() {
+        if (this.complianceMetrics) {
+            return this.complianceMetrics.totalComponents;
+        }
         return Object.values(this.inventoryCounts).reduce((sum, count) => sum + (count || 0), 0);
+    }
+
+    get compliantCount() {
+        return this.complianceMetrics ? this.complianceMetrics.compliantComponents : 0;
+    }
+
+    get nonCompliantCount() {
+        return this.complianceMetrics ? this.complianceMetrics.nonCompliantComponents : 0;
+    }
+
+    get oldestVersion() {
+        return this.complianceMetrics ? this.complianceMetrics.oldestVersion : '-';
+    }
+
+    get newestVersion() {
+        return this.complianceMetrics ? this.complianceMetrics.newestVersion : '-';
+    }
+
+    get versionsToUpgrade() {
+        return this.complianceMetrics ? this.complianceMetrics.versionsToUpgrade : 0;
     }
 
     get hasDistributionData() {
@@ -56,21 +137,24 @@ export default class InventoryPanel extends LightningElement {
 
         const entries = Object.entries(this.versionDistribution);
         const maxCount = Math.max(...entries.map(([, count]) => count), 1);
+        const targetNum = parseFloat(this.targetVersion);
 
         return entries
             .sort(([a], [b]) => parseFloat(b) - parseFloat(a))
-            .slice(0, 10)
+            .slice(0, 12)
             .map(([version, count]) => {
                 const percentage = Math.round((count / maxCount) * 100);
-                const targetNum = parseFloat(this.targetVersion);
                 const versionNum = parseFloat(version);
-                const isBelow = versionNum < targetNum;
+                const isCompliant = versionNum >= targetNum;
 
                 return {
                     version,
                     count,
                     percentage,
-                    barStyle: `width: ${percentage}%; background-color: ${isBelow ? '#c23934' : '#2e844a'};`
+                    isCompliant,
+                    barClass: isCompliant ? 'bar-compliant' : 'bar-non-compliant',
+                    barStyle: `width: ${percentage}%;`,
+                    versionClass: isCompliant ? 'version-compliant' : 'version-non-compliant'
                 };
             });
     }

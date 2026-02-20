@@ -36,8 +36,12 @@
                             <c-inventory-panel 
                                 inventory-counts={inventoryCounts}
                                 version-distribution={versionDistribution}
+                                compliance-metrics={complianceMetrics}
+                                target-version={settings.targetApiVersion}
+                                scope-policy={settings.scopePolicy}
                                 onrefresh={handleInventoryRefresh}
-                                onstartscan={handleStartScan}>
+                                onstartscan={handleStartScan}
+                                ontypechange={handleTypeChange}>
                             </c-inventory-panel>
                         </div>
                     </lightning-tab>

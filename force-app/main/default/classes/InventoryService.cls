@@ -275,6 +275,139 @@ public with sharing class InventoryService {
         return distribution;
     }
     
+    public class ComplianceMetricsDto {
+        @AuraEnabled public Integer totalComponents;
+        @AuraEnabled public Integer compliantComponents;
+        @AuraEnabled public Integer nonCompliantComponents;
+        @AuraEnabled public Decimal compliancePercentage;
+        @AuraEnabled public Decimal targetApiVersion;
+        @AuraEnabled public Map<String, TypeComplianceDto> byType;
+        @AuraEnabled public Map<String, Integer> versionBreakdown;
+        @AuraEnabled public Decimal oldestVersion;
+        @AuraEnabled public Decimal newestVersion;
+        @AuraEnabled public Integer versionsToUpgrade;
+    }
+    
+    public class TypeComplianceDto {
+        @AuraEnabled public String artifactType;
+        @AuraEnabled public Integer total;
+        @AuraEnabled public Integer compliant;
+        @AuraEnabled public Integer nonCompliant;
+        @AuraEnabled public Decimal compliancePercentage;
+    }
+    
+    @AuraEnabled(cacheable=true)
+    public static ComplianceMetricsDto getComplianceMetrics(Decimal targetApiVersion, String scopePolicy) {
+        ComplianceMetricsDto metrics = new ComplianceMetricsDto();
+        metrics.targetApiVersion = targetApiVersion;
+        metrics.byType = new Map<String, TypeComplianceDto>();
+        metrics.versionBreakdown = new Map<String, Integer>();
+        metrics.totalComponents = 0;
+        metrics.compliantComponents = 0;
+        metrics.nonCompliantComponents = 0;
+        metrics.oldestVersion = 999;
+        metrics.newestVersion = 0;
+        
+        String namespaceCondition = '';
+        if (scopePolicy == 'CustomOnly') {
+            namespaceCondition = ' WHERE NamespacePrefix = null';
+        } else if (scopePolicy == 'PackageOnly') {
+            namespaceCondition = ' WHERE NamespacePrefix != null';
+        }
+        
+        List<String> types = new List<String>{'ApexClass', 'ApexTrigger', 'ApexPage', 'ApexComponent'};
+        
+        for (String artifactType : types) {
+            TypeComplianceDto typeMetrics = new TypeComplianceDto();
+            typeMetrics.artifactType = artifactType;
+            typeMetrics.total = 0;
+            typeMetrics.compliant = 0;
+            typeMetrics.nonCompliant = 0;
+            
+            String query = 'SELECT ApiVersion, COUNT(Id) cnt FROM ' + 
+                           String.escapeSingleQuotes(artifactType) + 
+                           namespaceCondition + 
+                           ' GROUP BY ApiVersion';
+            
+            for (AggregateResult ar : Database.query(query)) {
+                Decimal version = (Decimal) ar.get('ApiVersion');
+                Integer count = (Integer) ar.get('cnt');
+                
+                typeMetrics.total += count;
+                
+                if (version >= targetApiVersion) {
+                    typeMetrics.compliant += count;
+                } else {
+                    typeMetrics.nonCompliant += count;
+                }
+                
+                if (version < metrics.oldestVersion) {
+                    metrics.oldestVersion = version;
+                }
+                if (version > metrics.newestVersion) {
+                    metrics.newestVersion = version;
+                }
+                
+                String versionKey = String.valueOf(version);
+                Integer existing = metrics.versionBreakdown.get(versionKey);
+                metrics.versionBreakdown.put(versionKey, (existing != null ? existing : 0) + count);
+            }
+            
+            typeMetrics.compliancePercentage = typeMetrics.total > 0 
+                ? (typeMetrics.compliant * 100.0 / typeMetrics.total).setScale(1) 
+                : 100;
+            
+            metrics.byType.put(artifactType, typeMetrics);
+            metrics.totalComponents += typeMetrics.total;
+            metrics.compliantComponents += typeMetrics.compliant;
+            metrics.nonCompliantComponents += typeMetrics.nonCompliant;
+        }
+        
+        metrics.compliancePercentage = metrics.totalComponents > 0 
+            ? (metrics.compliantComponents * 100.0 / metrics.totalComponents).setScale(1) 
+            : 100;
+        
+        if (metrics.oldestVersion == 999) metrics.oldestVersion = targetApiVersion;
+        if (metrics.newestVersion == 0) metrics.newestVersion = targetApiVersion;
+        
+        metrics.versionsToUpgrade = (Integer)(targetApiVersion - metrics.oldestVersion);
+        
+        return metrics;
+    }
+    
+    @AuraEnabled(cacheable=true)
+    public static Map<String, Map<String, Integer>> getVersionDistributionAllTypes(String scopePolicy) {
+        Map<String, Map<String, Integer>> allDistributions = new Map<String, Map<String, Integer>>();
+        
+        String namespaceCondition = '';
+        if (scopePolicy == 'CustomOnly') {
+            namespaceCondition = ' WHERE NamespacePrefix = null';
+        } else if (scopePolicy == 'PackageOnly') {
+            namespaceCondition = ' WHERE NamespacePrefix != null';
+        }
+        
+        List<String> types = new List<String>{'ApexClass', 'ApexTrigger', 'ApexPage', 'ApexComponent'};
+        
+        for (String artifactType : types) {
+            Map<String, Integer> distribution = new Map<String, Integer>();
+            
+            String query = 'SELECT ApiVersion, COUNT(Id) cnt FROM ' + 
+                           String.escapeSingleQuotes(artifactType) + 
+                           namespaceCondition + 
+                           ' GROUP BY ApiVersion ORDER BY ApiVersion DESC';
+            
+            for (AggregateResult ar : Database.query(query)) {
+                Decimal version = (Decimal) ar.get('ApiVersion');
+                Integer count = (Integer) ar.get('cnt');
+                distribution.put(String.valueOf(version), count);
+            }
+            
+            allDistributions.put(artifactType, distribution);
+        }
+        
+        return allDistributions;
+    }
+    
     @AuraEnabled
     public static ArtifactDto getArtifactDetails(String artifactId, String artifactType) {
         switch on artifactType {

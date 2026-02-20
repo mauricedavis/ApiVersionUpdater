@@ -8,6 +8,7 @@ import getAvailableApiVersions from '@salesforce/apex/ApiVersionUpdaterControlle
 import getSupportedComponentTypes from '@salesforce/apex/ApiVersionUpdaterController.getSupportedComponentTypes';
 import getInventoryCounts from '@salesforce/apex/ApiVersionUpdaterController.getInventoryCounts';
 import getVersionDistribution from '@salesforce/apex/ApiVersionUpdaterController.getVersionDistribution';
+import getComplianceMetrics from '@salesforce/apex/ApiVersionUpdaterController.getComplianceMetrics';
 import getRecentScans from '@salesforce/apex/ApiVersionUpdaterController.getRecentScans';
 import startScan from '@salesforce/apex/ApiVersionUpdaterController.startScan';
 import getScanStatus from '@salesforce/apex/ApiVersionUpdaterController.getScanStatus';
@@ -31,6 +32,7 @@ export default class ApiVersionUpdater extends LightningElement {
     };
     @track inventoryCounts = {};
     @track versionDistribution = {};
+    @track complianceMetrics = null;
     @track recentScans = [];
     @track currentScan = null;
     @track selectedScanId = null;
@@ -143,13 +145,28 @@ export default class ApiVersionUpdater extends LightningElement {
             this.inventoryCounts = counts;
             this.recentScans = scans;
 
-            await this.loadVersionDistribution('ApexClass');
+            await Promise.all([
+                this.loadVersionDistribution('ApexClass'),
+                this.loadComplianceMetrics()
+            ]);
 
         } catch (err) {
             this.error = this.extractErrorMessage(err);
             console.error('Error loading data:', err);
         } finally {
             this.isLoading = false;
+        }
+    }
+    
+    async loadComplianceMetrics() {
+        try {
+            const targetVersion = parseFloat(this.settings.targetApiVersion);
+            this.complianceMetrics = await getComplianceMetrics({ 
+                targetApiVersion: targetVersion,
+                scopePolicy: this.settings.scopePolicy 
+            });
+        } catch (err) {
+            console.error('Error loading compliance metrics:', err);
         }
     }
 
@@ -169,8 +186,26 @@ export default class ApiVersionUpdater extends LightningElement {
         this.loadInitialData();
     }
 
-    handleInventoryRefresh() {
-        this.loadInitialData();
+    async handleInventoryRefresh() {
+        this.isLoading = true;
+        try {
+            const counts = await getInventoryCounts();
+            this.inventoryCounts = counts;
+            
+            await Promise.all([
+                this.loadVersionDistribution('ApexClass'),
+                this.loadComplianceMetrics()
+            ]);
+        } catch (err) {
+            this.showToast('Error', this.extractErrorMessage(err), 'error');
+        } finally {
+            this.isLoading = false;
+        }
+    }
+    
+    async handleTypeChange(event) {
+        const type = event.detail.type;
+        await this.loadVersionDistribution(type);
     }
 
     handleSettingChange(event) {
@@ -198,6 +233,8 @@ export default class ApiVersionUpdater extends LightningElement {
             const result = await saveSettings({ settingsJson: JSON.stringify(this.settings) });
             this.settings = result;
             this.showToast('Success', 'Settings saved successfully', 'success');
+            
+            await this.loadComplianceMetrics();
         } catch (err) {
             this.showToast('Error', this.extractErrorMessage(err), 'error');
         }
