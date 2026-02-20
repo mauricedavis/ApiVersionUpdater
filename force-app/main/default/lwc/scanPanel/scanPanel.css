@@ -1,0 +1,35 @@
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.75rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.status-queued {
+    background-color: #fafaf9;
+    color: #706e6b;
+    border: 1px solid #c9c7c5;
+}
+
+.status-running {
+    background-color: #0176d3;
+    color: white;
+}
+
+.status-completed {
+    background-color: #2e844a;
+    color: white;
+}
+
+.status-failed {
+    background-color: #c23934;
+    color: white;
+}
+
+lightning-progress-bar {
+    --slds-c-progressbar-color-background: #e5e5e5;
+    --slds-c-progressbar-value-color-background: #0176d3;
+}

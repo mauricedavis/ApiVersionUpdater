@@ -1,0 +1,166 @@
+<template>
+    <lightning-card title="API Version Updater" icon-name="custom:custom63">
+        <div slot="actions">
+            <lightning-badge label={orgContext.orgName} class="slds-m-right_small"></lightning-badge>
+            <lightning-badge label={orgTypeLabel} class={orgTypeBadgeClass}></lightning-badge>
+            <lightning-button-icon 
+                icon-name="utility:refresh" 
+                alternative-text="Refresh"
+                onclick={handleRefresh}
+                class="slds-m-left_small">
+            </lightning-button-icon>
+        </div>
+
+        <template if:true={isLoading}>
+            <div class="slds-is-relative slds-p-around_large">
+                <lightning-spinner alternative-text="Loading" size="medium"></lightning-spinner>
+            </div>
+        </template>
+
+        <template if:false={isLoading}>
+            <template if:true={error}>
+                <div class="slds-p-around_medium">
+                    <div class="slds-notify slds-notify_alert slds-alert_error" role="alert">
+                        <span class="slds-assistive-text">error</span>
+                        <lightning-icon icon-name="utility:error" size="small" class="slds-m-right_x-small"></lightning-icon>
+                        <h2>{error}</h2>
+                    </div>
+                </div>
+            </template>
+
+            <div class="slds-p-around_medium">
+                <!-- Navigation Tabs -->
+                <lightning-tabset active-tab-value={activeTab} onselect={handleTabSelect}>
+                    <lightning-tab label="Dashboard" value="dashboard" icon-name="utility:chart">
+                        <div class="slds-p-around_small">
+                            <c-inventory-panel 
+                                inventory-counts={inventoryCounts}
+                                version-distribution={versionDistribution}
+                                onrefresh={handleInventoryRefresh}
+                                onstartscan={handleStartScan}>
+                            </c-inventory-panel>
+                        </div>
+                    </lightning-tab>
+
+                    <lightning-tab label="Scan" value="scan" icon-name="utility:search">
+                        <div class="slds-p-around_small">
+                            <c-scan-panel
+                                settings={settings}
+                                recent-scans={recentScans}
+                                current-scan={currentScan}
+                                onstartscan={handleStartScan}
+                                onviewscan={handleViewScan}
+                                oncancelscan={handleCancelScan}>
+                            </c-scan-panel>
+                        </div>
+                    </lightning-tab>
+
+                    <lightning-tab label="Findings" value="findings" icon-name="utility:warning" 
+                        disabled={noFindings}>
+                        <div class="slds-p-around_small">
+                            <c-findings-panel
+                                scan-id={selectedScanId}
+                                findings={findings}
+                                findings-summary={findingsSummary}
+                                oncreateplan={handleCreatePlan}>
+                            </c-findings-panel>
+                        </div>
+                    </lightning-tab>
+
+                    <lightning-tab label="Change Plan" value="changeplan" icon-name="utility:checkin"
+                        disabled={noChangePlan}>
+                        <div class="slds-p-around_small">
+                            <c-change-plan-panel
+                                change-plan={changePlan}
+                                change-items={changeItems}
+                                onexecuteplan={handleExecutePlan}>
+                            </c-change-plan-panel>
+                        </div>
+                    </lightning-tab>
+
+                    <lightning-tab label="Settings" value="settings" icon-name="utility:settings">
+                        <div class="slds-p-around_small">
+                            <div class="slds-grid slds-gutters">
+                                <div class="slds-col slds-size_1-of-2">
+                                    <lightning-card title="Scan Settings">
+                                        <div class="slds-p-horizontal_medium">
+                                            <lightning-combobox
+                                                name="targetApiVersion"
+                                                label="Target API Version"
+                                                value={settings.targetApiVersion}
+                                                options={apiVersionOptions}
+                                                onchange={handleSettingChange}>
+                                            </lightning-combobox>
+
+                                            <lightning-dual-listbox
+                                                name="includedTypes"
+                                                label="Component Types"
+                                                source-label="Available"
+                                                selected-label="Selected"
+                                                options={componentTypeOptions}
+                                                value={settings.includedTypes}
+                                                onchange={handleSettingChange}
+                                                class="slds-m-top_medium">
+                                            </lightning-dual-listbox>
+
+                                            <lightning-combobox
+                                                name="scopePolicy"
+                                                label="Scope Policy"
+                                                value={settings.scopePolicy}
+                                                options={scopePolicyOptions}
+                                                onchange={handleSettingChange}
+                                                class="slds-m-top_medium">
+                                            </lightning-combobox>
+                                        </div>
+                                    </lightning-card>
+                                </div>
+
+                                <div class="slds-col slds-size_1-of-2">
+                                    <lightning-card title="Deployment Settings">
+                                        <div class="slds-p-horizontal_medium">
+                                            <lightning-combobox
+                                                name="incrementPolicy"
+                                                label="Increment Policy"
+                                                value={settings.incrementPolicy}
+                                                options={incrementPolicyOptions}
+                                                onchange={handleSettingChange}>
+                                            </lightning-combobox>
+
+                                            <lightning-input
+                                                type="number"
+                                                name="maxDeltaPerDeploy"
+                                                label="Max Version Delta per Deploy"
+                                                value={settings.maxDeltaPerDeploy}
+                                                min="1"
+                                                max="20"
+                                                onchange={handleSettingChange}
+                                                class="slds-m-top_medium">
+                                            </lightning-input>
+
+                                            <lightning-checkbox-group
+                                                name="deployOptions"
+                                                label="Deploy Options"
+                                                options={deployOptionsList}
+                                                value={selectedDeployOptions}
+                                                onchange={handleDeployOptionsChange}
+                                                class="slds-m-top_medium">
+                                            </lightning-checkbox-group>
+                                        </div>
+                                    </lightning-card>
+
+                                    <div class="slds-m-top_medium">
+                                        <lightning-button 
+                                            variant="brand" 
+                                            label="Save Settings"
+                                            onclick={handleSaveSettings}>
+                                        </lightning-button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </lightning-tab>
+                </lightning-tabset>
+            </div>
+        </template>
+    </lightning-card>
+</template>

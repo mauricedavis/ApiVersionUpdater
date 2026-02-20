@@ -1,0 +1,137 @@
+<template>
+    <div class="slds-grid slds-gutters slds-wrap">
+        <!-- Plan Summary -->
+        <div class="slds-col slds-size_1-of-1 slds-m-bottom_medium">
+            <lightning-card title="Change Plan Summary">
+                <div slot="actions">
+                    <span class={planStatusClass}>{changePlan.status}</span>
+                </div>
+                <div class="slds-p-around_medium">
+                    <div class="slds-grid slds-gutters">
+                        <div class="slds-col slds-size_1-of-5">
+                            <div class="slds-box stat-box">
+                                <div class="stat-value">{changePlan.totalItems}</div>
+                                <div class="stat-label">Total Items</div>
+                            </div>
+                        </div>
+                        <div class="slds-col slds-size_1-of-5">
+                            <div class="slds-box stat-box stat-eligible">
+                                <div class="stat-value">{changePlan.eligibleItems}</div>
+                                <div class="stat-label">Eligible</div>
+                            </div>
+                        </div>
+                        <div class="slds-col slds-size_1-of-5">
+                            <div class="slds-box stat-box stat-blocked">
+                                <div class="stat-value">{changePlan.blockedItems}</div>
+                                <div class="stat-label">Blocked</div>
+                            </div>
+                        </div>
+                        <div class="slds-col slds-size_1-of-5">
+                            <div class="slds-box stat-box">
+                                <div class="stat-value">{changePlan.targetApiVersion}</div>
+                                <div class="stat-label">Target Version</div>
+                            </div>
+                        </div>
+                        <div class="slds-col slds-size_1-of-5">
+                            <div class="slds-box stat-box">
+                                <div class="stat-value">{changePlan.incrementPolicy}</div>
+                                <div class="stat-label">Policy</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <template if:true={canExecute}>
+                        <div class="slds-m-top_large slds-text-align_center">
+                            <lightning-button-group>
+                                <lightning-button 
+                                    variant="brand" 
+                                    label="Validate Only"
+                                    icon-name="utility:check"
+                                    onclick={handleValidate}>
+                                </lightning-button>
+                                <lightning-button 
+                                    variant="success" 
+                                    label="Deploy Changes"
+                                    icon-name="utility:upload"
+                                    onclick={handleDeploy}>
+                                </lightning-button>
+                            </lightning-button-group>
+                        </div>
+                    </template>
+
+                    <template if:true={isExecuting}>
+                        <div class="slds-m-top_large slds-text-align_center">
+                            <lightning-spinner alternative-text="Executing" size="medium"></lightning-spinner>
+                            <p class="slds-m-top_small slds-text-color_weak">Deployment in progress...</p>
+                        </div>
+                    </template>
+                </div>
+            </lightning-card>
+        </div>
+
+        <!-- Change Items Table -->
+        <div class="slds-col slds-size_1-of-1">
+            <lightning-card title="Change Items">
+                <div slot="actions">
+                    <lightning-combobox
+                        name="eligibilityFilter"
+                        value={eligibilityFilter}
+                        options={eligibilityOptions}
+                        onchange={handleFilterChange}
+                        variant="label-hidden">
+                    </lightning-combobox>
+                </div>
+                <template if:true={hasChangeItems}>
+                    <lightning-datatable
+                        key-field="id"
+                        data={filteredChangeItems}
+                        columns={columns}
+                        hide-checkbox-column
+                        sorted-by={sortedBy}
+                        sorted-direction={sortedDirection}
+                        onsort={handleSort}>
+                    </lightning-datatable>
+                </template>
+
+                <template if:false={hasChangeItems}>
+                    <div class="slds-p-around_large slds-text-align_center slds-text-color_weak">
+                        No change items in this plan
+                    </div>
+                </template>
+            </lightning-card>
+        </div>
+
+        <!-- Execution Results -->
+        <template if:true={hasExecutionResults}>
+            <div class="slds-col slds-size_1-of-1 slds-m-top_medium">
+                <lightning-card title="Execution Results">
+                    <div class="slds-p-around_medium">
+                        <div class="slds-grid slds-gutters">
+                            <div class="slds-col slds-size_1-of-3">
+                                <div class="slds-box result-box result-success">
+                                    <lightning-icon icon-name="utility:success" size="small" class="slds-m-right_x-small"></lightning-icon>
+                                    <span class="result-value">{successCount}</span>
+                                    <span class="result-label">Succeeded</span>
+                                </div>
+                            </div>
+                            <div class="slds-col slds-size_1-of-3">
+                                <div class="slds-box result-box result-failed">
+                                    <lightning-icon icon-name="utility:error" size="small" class="slds-m-right_x-small"></lightning-icon>
+                                    <span class="result-value">{failedCount}</span>
+                                    <span class="result-label">Failed</span>
+                                </div>
+                            </div>
+                            <div class="slds-col slds-size_1-of-3">
+                                <div class="slds-box result-box result-skipped">
+                                    <lightning-icon icon-name="utility:dash" size="small" class="slds-m-right_x-small"></lightning-icon>
+                                    <span class="result-value">{skippedCount}</span>
+                                    <span class="result-label">Skipped</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </lightning-card>
+            </div>
+        </template>
+    </div>
+</template>

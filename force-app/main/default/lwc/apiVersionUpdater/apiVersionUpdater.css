@@ -1,0 +1,74 @@
+:host {
+    display: block;
+}
+
+.slds-badge_lightest {
+    background-color: #f3f3f3;
+    color: #080707;
+}
+
+.count-card {
+    text-align: center;
+    padding: 1rem;
+    border-radius: 0.25rem;
+    background: linear-gradient(135deg, #f5f7fa 0%, #e4e8eb 100%);
+}
+
+.count-value {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #0176d3;
+}
+
+.count-label {
+    font-size: 0.875rem;
+    color: #706e6b;
+    margin-top: 0.25rem;
+}
+
+.severity-critical {
+    color: #c23934;
+    font-weight: bold;
+}
+
+.severity-warning {
+    color: #fe9339;
+}
+
+.severity-info {
+    color: #0176d3;
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.125rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.status-queued {
+    background-color: #fafaf9;
+    color: #706e6b;
+}
+
+.status-running {
+    background-color: #1589ee;
+    color: white;
+}
+
+.status-completed {
+    background-color: #2e844a;
+    color: white;
+}
+
+.status-failed {
+    background-color: #c23934;
+    color: white;
+}
+
+.version-chart-container {
+    height: 200px;
+    position: relative;
+}

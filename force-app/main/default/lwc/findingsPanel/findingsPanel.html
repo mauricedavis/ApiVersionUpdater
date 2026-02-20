@@ -1,0 +1,142 @@
+<template>
+    <div class="slds-grid slds-gutters slds-wrap">
+        <!-- Summary Cards -->
+        <div class="slds-col slds-size_1-of-1 slds-m-bottom_medium">
+            <div class="slds-grid slds-gutters">
+                <div class="slds-col slds-size_1-of-4">
+                    <div class="slds-box summary-card summary-total">
+                        <div class="summary-value">{totalFindings}</div>
+                        <div class="summary-label">Total Findings</div>
+                    </div>
+                </div>
+                <div class="slds-col slds-size_1-of-4">
+                    <div class="slds-box summary-card summary-critical">
+                        <lightning-icon icon-name="utility:error" size="small" class="slds-m-right_x-small"></lightning-icon>
+                        <div class="summary-value">{criticalCount}</div>
+                        <div class="summary-label">Critical</div>
+                    </div>
+                </div>
+                <div class="slds-col slds-size_1-of-4">
+                    <div class="slds-box summary-card summary-warning">
+                        <lightning-icon icon-name="utility:warning" size="small" class="slds-m-right_x-small"></lightning-icon>
+                        <div class="summary-value">{warningCount}</div>
+                        <div class="summary-label">Warning</div>
+                    </div>
+                </div>
+                <div class="slds-col slds-size_1-of-4">
+                    <div class="slds-box summary-card summary-info">
+                        <lightning-icon icon-name="utility:info" size="small" class="slds-m-right_x-small"></lightning-icon>
+                        <div class="summary-value">{infoCount}</div>
+                        <div class="summary-label">Info</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="slds-col slds-size_1-of-1 slds-m-bottom_medium">
+            <lightning-card>
+                <div class="slds-p-horizontal_medium slds-p-vertical_small">
+                    <div class="slds-grid slds-gutters slds-grid_vertical-align-end">
+                        <div class="slds-col slds-size_1-of-4">
+                            <lightning-combobox
+                                name="severityFilter"
+                                label="Severity"
+                                value={severityFilter}
+                                options={severityOptions}
+                                onchange={handleFilterChange}>
+                            </lightning-combobox>
+                        </div>
+                        <div class="slds-col slds-size_1-of-4">
+                            <lightning-combobox
+                                name="categoryFilter"
+                                label="Category"
+                                value={categoryFilter}
+                                options={categoryOptions}
+                                onchange={handleFilterChange}>
+                            </lightning-combobox>
+                        </div>
+                        <div class="slds-col slds-size_1-of-4">
+                            <lightning-input
+                                type="search"
+                                name="searchText"
+                                label="Search"
+                                placeholder="Search findings..."
+                                value={searchText}
+                                onchange={handleSearchChange}>
+                            </lightning-input>
+                        </div>
+                        <div class="slds-col slds-size_1-of-4">
+                            <lightning-button 
+                                variant="brand" 
+                                label="Create Change Plan"
+                                icon-name="utility:checkin"
+                                onclick={handleCreatePlan}
+                                disabled={hasBlockingFindings}>
+                            </lightning-button>
+                        </div>
+                    </div>
+                </div>
+            </lightning-card>
+        </div>
+
+        <!-- Findings List -->
+        <div class="slds-col slds-size_1-of-1">
+            <lightning-card title="Findings">
+                <template if:true={hasFindings}>
+                    <div class="slds-p-around_medium">
+                        <template for:each={filteredFindings} for:item="finding">
+                            <div key={finding.id} class="finding-item slds-box slds-m-bottom_small">
+                                <div class="slds-grid slds-gutters">
+                                    <div class="slds-col slds-size_1-of-12">
+                                        <span class={finding.severityClass}>
+                                            <lightning-icon 
+                                                icon-name={finding.severityIcon} 
+                                                size="small"
+                                                alternative-text={finding.severity}>
+                                            </lightning-icon>
+                                        </span>
+                                    </div>
+                                    <div class="slds-col slds-size_8-of-12">
+                                        <div class="slds-text-heading_small">{finding.artifactName}</div>
+                                        <div class="slds-text-body_regular slds-m-top_xx-small">{finding.summary}</div>
+                                        <template if:true={finding.details}>
+                                            <div class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">
+                                                {finding.details}
+                                            </div>
+                                        </template>
+                                        <template if:true={finding.suggestedAction}>
+                                            <div class="slds-m-top_x-small">
+                                                <lightning-badge label="Suggested Action" class="slds-m-right_x-small"></lightning-badge>
+                                                <span class="slds-text-body_small">{finding.suggestedAction}</span>
+                                            </div>
+                                        </template>
+                                    </div>
+                                    <div class="slds-col slds-size_3-of-12 slds-text-align_right">
+                                        <lightning-badge label={finding.category} class="slds-m-right_x-small"></lightning-badge>
+                                        <lightning-badge label={finding.ruleId}></lightning-badge>
+                                        <template if:true={finding.isBlocking}>
+                                            <div class="slds-m-top_x-small">
+                                                <lightning-badge label="BLOCKING" class="blocking-badge"></lightning-badge>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </template>
+
+                <template if:false={hasFindings}>
+                    <div class="slds-p-around_large slds-text-align_center">
+                        <lightning-icon icon-name="utility:success" size="large" variant="success" class="slds-m-bottom_medium"></lightning-icon>
+                        <h3 class="slds-text-heading_medium">No Findings</h3>
+                        <p class="slds-text-color_weak slds-m-top_small">
+                            No issues were found during the analysis.
+                        </p>
+                    </div>
+                </template>
+            </lightning-card>
+        </div>
+    </div>
+</template>

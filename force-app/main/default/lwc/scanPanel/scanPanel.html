@@ -1,0 +1,137 @@
+<template>
+    <div class="slds-grid slds-gutters slds-wrap">
+        <!-- Current Scan Status -->
+        <div class="slds-col slds-size_1-of-1 slds-m-bottom_medium">
+            <template if:true={hasCurrentScan}>
+                <lightning-card title="Current Scan">
+                    <div class="slds-p-around_medium">
+                        <div class="slds-grid slds-gutters">
+                            <div class="slds-col slds-size_1-of-4">
+                                <div class="slds-text-title_caps slds-m-bottom_xx-small">Status</div>
+                                <span class={currentScanStatusClass}>{currentScan.status}</span>
+                            </div>
+                            <div class="slds-col slds-size_1-of-4">
+                                <div class="slds-text-title_caps slds-m-bottom_xx-small">Started</div>
+                                <lightning-formatted-date-time 
+                                    value={currentScan.startedAt}
+                                    year="numeric" month="short" day="2-digit"
+                                    hour="2-digit" minute="2-digit">
+                                </lightning-formatted-date-time>
+                            </div>
+                            <div class="slds-col slds-size_1-of-4">
+                                <div class="slds-text-title_caps slds-m-bottom_xx-small">Artifacts</div>
+                                <span>{currentScan.totalArtifacts}</span>
+                            </div>
+                            <div class="slds-col slds-size_1-of-4">
+                                <div class="slds-text-title_caps slds-m-bottom_xx-small">Findings</div>
+                                <span>{currentScan.findingsCount}</span>
+                            </div>
+                        </div>
+
+                        <template if:true={isScanRunning}>
+                            <div class="slds-m-top_medium">
+                                <lightning-progress-bar value={scanProgress} size="large" variant="circular"></lightning-progress-bar>
+                                <div class="slds-text-align_center slds-m-top_x-small slds-text-color_weak">
+                                    Processing... {currentScan.processedArtifacts} / {currentScan.totalArtifacts}
+                                </div>
+                            </div>
+                            <div class="slds-m-top_medium slds-text-align_center">
+                                <lightning-button 
+                                    variant="destructive" 
+                                    label="Cancel Scan" 
+                                    onclick={handleCancelScan}>
+                                </lightning-button>
+                            </div>
+                        </template>
+                    </div>
+                </lightning-card>
+            </template>
+        </div>
+
+        <!-- Scan Configuration -->
+        <div class="slds-col slds-size_1-of-2">
+            <lightning-card title="New Scan">
+                <div class="slds-p-around_medium">
+                    <lightning-combobox
+                        name="targetVersion"
+                        label="Target API Version"
+                        value={scanConfig.targetApiVersion}
+                        options={apiVersionOptions}
+                        onchange={handleConfigChange}>
+                    </lightning-combobox>
+
+                    <lightning-checkbox-group
+                        name="types"
+                        label="Component Types"
+                        options={typeOptions}
+                        value={scanConfig.types}
+                        onchange={handleTypesChange}
+                        class="slds-m-top_medium">
+                    </lightning-checkbox-group>
+
+                    <lightning-combobox
+                        name="namespacePolicy"
+                        label="Namespace Scope"
+                        value={scanConfig.namespacePolicy}
+                        options={namespaceOptions}
+                        onchange={handleConfigChange}
+                        class="slds-m-top_medium">
+                    </lightning-combobox>
+
+                    <lightning-input
+                        type="number"
+                        name="minApiVersion"
+                        label="Minimum API Version (optional)"
+                        value={scanConfig.minApiVersion}
+                        onchange={handleConfigChange}
+                        class="slds-m-top_medium">
+                    </lightning-input>
+
+                    <lightning-input
+                        type="number"
+                        name="maxApiVersion"
+                        label="Maximum API Version (optional)"
+                        value={scanConfig.maxApiVersion}
+                        onchange={handleConfigChange}
+                        class="slds-m-top_medium">
+                    </lightning-input>
+
+                    <div class="slds-m-top_large">
+                        <lightning-button 
+                            variant="brand" 
+                            label="Start Scan"
+                            icon-name="utility:search"
+                            onclick={handleStartScan}
+                            disabled={isScanRunning}>
+                        </lightning-button>
+                    </div>
+                </div>
+            </lightning-card>
+        </div>
+
+        <!-- Recent Scans -->
+        <div class="slds-col slds-size_1-of-2">
+            <lightning-card title="Recent Scans">
+                <div class="slds-p-around_medium">
+                    <template if:true={hasRecentScans}>
+                        <lightning-datatable
+                            key-field="scanId"
+                            data={recentScansData}
+                            columns={scanColumns}
+                            hide-checkbox-column
+                            onrowaction={handleRowAction}>
+                        </lightning-datatable>
+                    </template>
+
+                    <template if:false={hasRecentScans}>
+                        <div class="slds-text-align_center slds-text-color_weak slds-p-around_large">
+                            <lightning-icon icon-name="utility:info" size="large" class="slds-m-bottom_small"></lightning-icon>
+                            <p>No scans have been run yet.</p>
+                            <p class="slds-m-top_small">Start a new scan to analyze your components.</p>
+                        </div>
+                    </template>
+                </div>
+            </lightning-card>
+        </div>
+    </div>
+</template>
