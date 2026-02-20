@@ -1,0 +1,255 @@
+<template>
+    <lightning-card title="Backup & Restore" icon-name="utility:backup">
+        <div slot="actions">
+            <template lwc:if={hasBackupData}>
+                <lightning-button 
+                    label="Restore All" 
+                    variant="brand" 
+                    onclick={handleRestoreAllClick}
+                    disabled={isLoading}
+                    class="slds-m-right_x-small">
+                </lightning-button>
+                <lightning-button 
+                    label="Cleanup Backup" 
+                    variant="destructive-text" 
+                    onclick={handleCleanupClick}
+                    disabled={isLoading}>
+                </lightning-button>
+            </template>
+            <template lwc:else>
+                <lightning-button 
+                    label="Create Backup" 
+                    variant="brand" 
+                    onclick={handleCreateBackup}
+                    disabled={isLoading}>
+                </lightning-button>
+            </template>
+        </div>
+        
+        <div class="slds-p-around_medium">
+            <template lwc:if={isLoading}>
+                <lightning-spinner alternative-text="Loading" size="medium"></lightning-spinner>
+            </template>
+            
+            <template lwc:if={hasBackupData}>
+                <!-- Backup Summary -->
+                <div class="slds-grid slds-wrap slds-gutters slds-m-bottom_medium">
+                    <div class="slds-col slds-size_1-of-4">
+                        <div class="slds-box slds-box_xx-small">
+                            <p class="slds-text-title_caps slds-text-color_weak">Total Items</p>
+                            <p class="slds-text-heading_large">{backupSummary.totalItems}</p>
+                        </div>
+                    </div>
+                    <div class="slds-col slds-size_1-of-4">
+                        <div class="slds-box slds-box_xx-small">
+                            <p class="slds-text-title_caps slds-text-color_weak">Restorable</p>
+                            <p class="slds-text-heading_large">{restorableItemCount}</p>
+                        </div>
+                    </div>
+                    <div class="slds-col slds-size_1-of-4">
+                        <div class="slds-box slds-box_xx-small">
+                            <p class="slds-text-title_caps slds-text-color_weak">Restored</p>
+                            <p class="slds-text-heading_large">{backupSummary.restoredCount}</p>
+                        </div>
+                    </div>
+                    <div class="slds-col slds-size_1-of-4">
+                        <div class="slds-box slds-box_xx-small">
+                            <p class="slds-text-title_caps slds-text-color_weak">Expires In</p>
+                            <p class={expirationWarningClass}>
+                                <span class="slds-text-heading_large">{daysUntilExpiration}</span> days
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="slds-m-bottom_medium">
+                    <p class="slds-text-body_small slds-text-color_weak">
+                        Backup created: {backupCreatedFormatted} | 
+                        Expires: {expirationDateFormatted}
+                        <template lwc:if={backupSummary.notificationSent}>
+                            <lightning-badge label="Expiration Notice Sent" class="slds-m-left_x-small"></lightning-badge>
+                        </template>
+                    </p>
+                </div>
+                
+                <!-- Backup Items Table -->
+                <template lwc:if={noBackupItems}>
+                    <div class="slds-illustration slds-illustration_small">
+                        <div class="slds-text-longform">
+                            <h3 class="slds-text-heading_medium">No backup items found</h3>
+                        </div>
+                    </div>
+                </template>
+                <template lwc:else>
+                    <lightning-datatable
+                        key-field="id"
+                        data={backupItems}
+                        columns={columns}
+                        onrowaction={handleRowAction}
+                        hide-checkbox-column>
+                    </lightning-datatable>
+                </template>
+            </template>
+            
+            <template lwc:else>
+                <div class="slds-illustration slds-illustration_small slds-text-align_center">
+                    <div class="slds-text-longform">
+                        <h3 class="slds-text-heading_medium">No Backup Available</h3>
+                        <p class="slds-text-body_regular">
+                            Click "Create Backup" to backup components before deployment.
+                        </p>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </lightning-card>
+    
+    <!-- Preview Modal -->
+    <template lwc:if={showPreviewModal}>
+        <section role="dialog" tabindex="-1" class="slds-modal slds-fade-in-open slds-modal_large">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header">
+                    <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse" 
+                            title="Close" onclick={closePreviewModal}>
+                        <lightning-icon icon-name="utility:close" alternative-text="Close" size="small"></lightning-icon>
+                    </button>
+                    <h2 class="slds-modal__title">Preview: {selectedItem.fullName}</h2>
+                </header>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <div class="code-preview">
+                        <pre><code>{previewContent}</code></pre>
+                    </div>
+                </div>
+                <footer class="slds-modal__footer">
+                    <lightning-button label="Close" onclick={closePreviewModal}></lightning-button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+    
+    <!-- Diff Modal -->
+    <template lwc:if={showDiffModal}>
+        <section role="dialog" tabindex="-1" class="slds-modal slds-fade-in-open slds-modal_large">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header">
+                    <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse" 
+                            title="Close" onclick={closeDiffModal}>
+                        <lightning-icon icon-name="utility:close" alternative-text="Close" size="small"></lightning-icon>
+                    </button>
+                    <h2 class="slds-modal__title">Compare: {selectedItem.fullName}</h2>
+                </header>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <template lwc:if={diffResult}>
+                        <div class="slds-grid slds-gutters slds-m-bottom_medium">
+                            <div class="slds-col slds-size_1-of-3">
+                                <lightning-badge label="Lines Added: {diffResult.linesAdded}" 
+                                                 class="slds-badge_success"></lightning-badge>
+                            </div>
+                            <div class="slds-col slds-size_1-of-3">
+                                <lightning-badge label="Lines Removed: {diffResult.linesRemoved}" 
+                                                 class="slds-badge_error"></lightning-badge>
+                            </div>
+                            <div class="slds-col slds-size_1-of-3">
+                                <lightning-badge label="Lines Changed: {diffResult.linesChanged}"></lightning-badge>
+                            </div>
+                        </div>
+                        
+                        <template lwc:if={diffHasChanges}>
+                            <div class="slds-grid slds-gutters">
+                                <div class="slds-col slds-size_1-of-2">
+                                    <h3 class="slds-text-heading_small slds-m-bottom_x-small">Backup (Original)</h3>
+                                    <div class="code-preview code-backup">
+                                        <pre><code>{diffResult.backupContent}</code></pre>
+                                    </div>
+                                </div>
+                                <div class="slds-col slds-size_1-of-2">
+                                    <h3 class="slds-text-heading_small slds-m-bottom_x-small">Current</h3>
+                                    <div class="code-preview code-current">
+                                        <pre><code>{diffResult.currentContent}</code></pre>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                        <template lwc:else>
+                            <div class="slds-text-align_center slds-p-around_large">
+                                <lightning-icon icon-name="utility:success" variant="success" size="large"></lightning-icon>
+                                <p class="slds-text-heading_small slds-m-top_small">No changes detected</p>
+                                <p class="slds-text-body_regular">The current content matches the backup.</p>
+                            </div>
+                        </template>
+                    </template>
+                </div>
+                <footer class="slds-modal__footer">
+                    <lightning-button label="Close" onclick={closeDiffModal}></lightning-button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+    
+    <!-- Restore Confirmation Modal -->
+    <template lwc:if={showRestoreConfirmModal}>
+        <section role="dialog" tabindex="-1" class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header">
+                    <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse" 
+                            title="Close" onclick={closeRestoreConfirmModal}>
+                        <lightning-icon icon-name="utility:close" alternative-text="Close" size="small"></lightning-icon>
+                    </button>
+                    <h2 class="slds-modal__title">Confirm Restore</h2>
+                </header>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <template lwc:if={restoreAllMode}>
+                        <p>Are you sure you want to restore <strong>{restorableItemCount}</strong> items to their original state?</p>
+                        <p class="slds-text-color_error slds-m-top_small">
+                            <lightning-icon icon-name="utility:warning" variant="error" size="x-small"></lightning-icon>
+                            This will overwrite the current code with the backed-up version.
+                        </p>
+                    </template>
+                    <template lwc:else>
+                        <p>Are you sure you want to restore <strong>{selectedItem.fullName}</strong> to its original state?</p>
+                        <p class="slds-text-color_error slds-m-top_small">
+                            <lightning-icon icon-name="utility:warning" variant="error" size="x-small"></lightning-icon>
+                            This will overwrite the current code with the backed-up version.
+                        </p>
+                    </template>
+                </div>
+                <footer class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={closeRestoreConfirmModal}></lightning-button>
+                    <lightning-button label="Restore" variant="brand" onclick={confirmRestore} 
+                                      class="slds-m-left_x-small"></lightning-button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+    
+    <!-- Cleanup Confirmation Modal -->
+    <template lwc:if={showCleanupConfirmModal}>
+        <section role="dialog" tabindex="-1" class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header">
+                    <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse" 
+                            title="Close" onclick={closeCleanupConfirmModal}>
+                        <lightning-icon icon-name="utility:close" alternative-text="Close" size="small"></lightning-icon>
+                    </button>
+                    <h2 class="slds-modal__title">Confirm Cleanup</h2>
+                </header>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <p>Are you sure you want to delete this backup?</p>
+                    <p class="slds-text-color_error slds-m-top_small">
+                        <lightning-icon icon-name="utility:warning" variant="error" size="x-small"></lightning-icon>
+                        This action cannot be undone. All backup files will be permanently deleted.
+                    </p>
+                </div>
+                <footer class="slds-modal__footer">
+                    <lightning-button label="Cancel" onclick={closeCleanupConfirmModal}></lightning-button>
+                    <lightning-button label="Delete Backup" variant="destructive" onclick={confirmCleanup} 
+                                      class="slds-m-left_x-small"></lightning-button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
+</template>

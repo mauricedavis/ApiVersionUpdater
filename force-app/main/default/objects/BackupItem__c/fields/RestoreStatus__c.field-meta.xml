@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>RestoreStatus__c</fullName>
+    <description>Current restore status of this backup item</description>
+    <externalId>false</externalId>
+    <label>Restore Status</label>
+    <required>false</required>
+    <trackTrending>false</trackTrending>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>NotRestored</fullName>
+                <default>true</default>
+                <label>Not Restored</label>
+            </value>
+            <value>
+                <fullName>Restoring</fullName>
+                <default>false</default>
+                <label>Restoring</label>
+            </value>
+            <value>
+                <fullName>Restored</fullName>
+                <default>false</default>
+                <label>Restored</label>
+            </value>
+            <value>
+                <fullName>Failed</fullName>
+                <default>false</default>
+                <label>Failed</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

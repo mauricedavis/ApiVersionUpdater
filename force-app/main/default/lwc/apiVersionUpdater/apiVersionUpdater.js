@@ -38,6 +38,8 @@ export default class ApiVersionUpdater extends LightningElement {
     @track findingsSummary = {};
     @track changePlan = null;
     @track changeItems = [];
+    @track currentDeploymentRunId = null;
+    @track hasBackup = false;
 
     @track isLoading = true;
     @track error = null;
@@ -95,6 +97,14 @@ export default class ApiVersionUpdater extends LightningElement {
 
     get noChangePlan() {
         return !this.hasChangePlan;
+    }
+
+    get hasDeploymentRun() {
+        return this.currentDeploymentRunId !== null;
+    }
+
+    get noDeploymentRun() {
+        return !this.hasDeploymentRun;
     }
 
     get selectedDeployOptions() {
@@ -332,6 +342,9 @@ export default class ApiVersionUpdater extends LightningElement {
             this.isLoading = true;
             const runId = await executePlan({ planId });
             
+            this.currentDeploymentRunId = runId;
+            this.hasBackup = this.settings.enableRollbackStorage;
+            
             this.showToast('Deployment Started', 'Deployment has been queued', 'success');
 
             const plan = await getChangePlan({ planId });
@@ -345,6 +358,11 @@ export default class ApiVersionUpdater extends LightningElement {
         } finally {
             this.isLoading = false;
         }
+    }
+
+    handleBackupCleanedUp() {
+        this.hasBackup = false;
+        this.showToast('Success', 'Backup has been cleaned up', 'success');
     }
 
     showToast(title, message, variant) {

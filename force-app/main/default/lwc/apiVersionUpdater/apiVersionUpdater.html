@@ -78,6 +78,17 @@
                         </div>
                     </lightning-tab>
 
+                    <lightning-tab label="Backup & Restore" value="backup" icon-name="utility:backup"
+                        disabled={noDeploymentRun}>
+                        <div class="slds-p-around_small">
+                            <c-backup-restore-panel
+                                deployment-run-id={currentDeploymentRunId}
+                                has-backup={hasBackup}
+                                onbackupcleanedup={handleBackupCleanedUp}>
+                            </c-backup-restore-panel>
+                        </div>
+                    </lightning-tab>
+
                     <lightning-tab label="Settings" value="settings" icon-name="utility:settings">
                         <div class="slds-p-around_small">
                             <div class="slds-grid slds-gutters">

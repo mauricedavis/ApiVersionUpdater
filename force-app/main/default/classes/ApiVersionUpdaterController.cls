@@ -107,4 +107,70 @@ public with sharing class ApiVersionUpdaterController {
     public static void setWriteModeEnabled(Boolean enabled) {
         OrgContextService.setWriteModeEnabled(enabled);
     }
+    
+    // Backup Service Methods
+    
+    @AuraEnabled
+    public static String createBackupForDeployment(String deploymentRunId) {
+        return BackupService.createBackupForDeployment(deploymentRunId);
+    }
+    
+    @AuraEnabled(cacheable=true)
+    public static BackupService.BackupSummaryDto getBackupSummary(String deploymentRunId) {
+        return BackupService.getBackupSummary(deploymentRunId);
+    }
+    
+    @AuraEnabled(cacheable=true)
+    public static List<BackupService.BackupItemDto> getBackupItems(String deploymentRunId) {
+        return BackupService.getBackupItems(deploymentRunId);
+    }
+    
+    @AuraEnabled
+    public static String getBackupContent(String backupItemId) {
+        return BackupService.getBackupContent(backupItemId);
+    }
+    
+    @AuraEnabled
+    public static String getBackupMetadata(String backupItemId) {
+        return BackupService.getBackupMetadata(backupItemId);
+    }
+    
+    @AuraEnabled
+    public static void cleanupBackup(String deploymentRunId) {
+        BackupService.cleanupBackup(deploymentRunId);
+    }
+    
+    // Restore Service Methods
+    
+    @AuraEnabled
+    public static List<RestoreService.RestoreResultDto> restoreAll(String deploymentRunId) {
+        return RestoreService.restoreAll(deploymentRunId);
+    }
+    
+    @AuraEnabled
+    public static RestoreService.RestoreResultDto restoreItem(String backupItemId) {
+        return RestoreService.restoreItem(backupItemId);
+    }
+    
+    @AuraEnabled
+    public static String previewBackupContent(String backupItemId) {
+        return RestoreService.previewBackupContent(backupItemId);
+    }
+    
+    @AuraEnabled
+    public static RestoreService.DiffResultDto getDiff(String backupItemId) {
+        return RestoreService.getDiff(backupItemId);
+    }
+    
+    // Backup Notification Schedule Methods
+    
+    @AuraEnabled
+    public static Map<String, Object> getBackupScheduleStatus() {
+        return BackupNotificationSchedulable.getScheduleStatus();
+    }
+    
+    @AuraEnabled
+    public static void toggleBackupSchedule(Boolean enable) {
+        BackupNotificationSchedulable.toggleSchedule(enable);
+    }
 }
