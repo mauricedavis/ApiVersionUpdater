@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>PatternType__c</fullName>
+    <description>Type of pattern matching</description>
+    <externalId>false</externalId>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <label>Pattern Type</label>
+    <required>false</required>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>Regex</fullName>
+                <default>true</default>
+                <label>Regex</label>
+            </value>
+            <value>
+                <fullName>Contains</fullName>
+                <default>false</default>
+                <label>Contains</label>
+            </value>
+            <value>
+                <fullName>ASTHint</fullName>
+                <default>false</default>
+                <label>AST Hint</label>
+            </value>
+            <value>
+                <fullName>XMLPath</fullName>
+                <default>false</default>
+                <label>XML Path</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

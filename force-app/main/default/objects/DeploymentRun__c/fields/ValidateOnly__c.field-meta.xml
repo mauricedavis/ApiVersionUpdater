@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ValidateOnly__c</fullName>
+    <description>Whether this was a validate-only deployment</description>
+    <defaultValue>false</defaultValue>
+    <externalId>false</externalId>
+    <label>Validate Only</label>
+    <trackHistory>false</trackHistory>
+    <type>Checkbox</type>
+</CustomField>

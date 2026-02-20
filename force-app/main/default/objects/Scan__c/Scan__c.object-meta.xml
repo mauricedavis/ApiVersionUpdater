@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomObject xmlns="http://soap.sforce.com/2006/04/metadata">
+    <deploymentStatus>Deployed</deploymentStatus>
+    <description>Represents a scan/inventory run of org metadata components for API version analysis</description>
+    <enableActivities>false</enableActivities>
+    <enableBulkApi>true</enableBulkApi>
+    <enableHistory>true</enableHistory>
+    <enableReports>true</enableReports>
+    <enableSearch>true</enableSearch>
+    <enableSharing>true</enableSharing>
+    <enableStreamingApi>true</enableStreamingApi>
+    <label>Scan</label>
+    <nameField>
+        <displayFormat>SCAN-{0000}</displayFormat>
+        <label>Scan Number</label>
+        <type>AutoNumber</type>
+    </nameField>
+    <pluralLabel>Scans</pluralLabel>
+    <sharingModel>ReadWrite</sharingModel>
+</CustomObject>

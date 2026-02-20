@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Category__c</fullName>
+    <description>Category of the finding</description>
+    <externalId>false</externalId>
+    <label>Category</label>
+    <required>true</required>
+    <trackHistory>false</trackHistory>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>ApiVersionRisk</fullName>
+                <default>false</default>
+                <label>API Version Risk</label>
+            </value>
+            <value>
+                <fullName>DeprecatedAPI</fullName>
+                <default>false</default>
+                <label>Deprecated API</label>
+            </value>
+            <value>
+                <fullName>MissingDependency</fullName>
+                <default>false</default>
+                <label>Missing Dependency</label>
+            </value>
+            <value>
+                <fullName>FlowReference</fullName>
+                <default>false</default>
+                <label>Flow Reference</label>
+            </value>
+            <value>
+                <fullName>Namespace</fullName>
+                <default>false</default>
+                <label>Namespace</label>
+            </value>
+            <value>
+                <fullName>Security</fullName>
+                <default>false</default>
+                <label>Security</label>
+            </value>
+            <value>
+                <fullName>BestPractice</fullName>
+                <default>false</default>
+                <label>Best Practice</label>
+            </value>
+            <value>
+                <fullName>Performance</fullName>
+                <default>false</default>
+                <label>Performance</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

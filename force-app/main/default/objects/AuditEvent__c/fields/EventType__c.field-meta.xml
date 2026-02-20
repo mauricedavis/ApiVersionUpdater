@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>EventType__c</fullName>
+    <description>Type of audit event</description>
+    <externalId>false</externalId>
+    <label>Event Type</label>
+    <required>true</required>
+    <trackHistory>false</trackHistory>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>WriteModeEnabled</fullName>
+                <default>false</default>
+                <label>Write Mode Enabled</label>
+            </value>
+            <value>
+                <fullName>WriteModeDisabled</fullName>
+                <default>false</default>
+                <label>Write Mode Disabled</label>
+            </value>
+            <value>
+                <fullName>ScanStarted</fullName>
+                <default>false</default>
+                <label>Scan Started</label>
+            </value>
+            <value>
+                <fullName>ScanCompleted</fullName>
+                <default>false</default>
+                <label>Scan Completed</label>
+            </value>
+            <value>
+                <fullName>PlanCreated</fullName>
+                <default>false</default>
+                <label>Plan Created</label>
+            </value>
+            <value>
+                <fullName>PlanValidated</fullName>
+                <default>false</default>
+                <label>Plan Validated</label>
+            </value>
+            <value>
+                <fullName>DeployStarted</fullName>
+                <default>false</default>
+                <label>Deploy Started</label>
+            </value>
+            <value>
+                <fullName>DeployFinished</fullName>
+                <default>false</default>
+                <label>Deploy Finished</label>
+            </value>
+            <value>
+                <fullName>SettingsChanged</fullName>
+                <default>false</default>
+                <label>Settings Changed</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

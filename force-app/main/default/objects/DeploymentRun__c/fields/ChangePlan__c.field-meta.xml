@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>ChangePlan__c</fullName>
+    <description>Parent change plan</description>
+    <externalId>false</externalId>
+    <label>Change Plan</label>
+    <referenceTo>ChangePlan__c</referenceTo>
+    <relationshipLabel>Deployment Runs</relationshipLabel>
+    <relationshipName>DeploymentRuns</relationshipName>
+    <relationshipOrder>0</relationshipOrder>
+    <reparentableMasterDetail>false</reparentableMasterDetail>
+    <trackHistory>false</trackHistory>
+    <type>MasterDetail</type>
+    <writeRequiresMasterRead>false</writeRequiresMasterRead>
+</CustomField>

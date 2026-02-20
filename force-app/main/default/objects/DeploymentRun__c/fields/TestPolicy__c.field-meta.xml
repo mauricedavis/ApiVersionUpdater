@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>TestPolicy__c</fullName>
+    <description>Test policy used for this deployment</description>
+    <externalId>false</externalId>
+    <label>Test Policy</label>
+    <required>false</required>
+    <trackHistory>false</trackHistory>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>RunSpecifiedTests</fullName>
+                <default>true</default>
+                <label>Run Specified Tests</label>
+            </value>
+            <value>
+                <fullName>RunLocalTests</fullName>
+                <default>false</default>
+                <label>Run Local Tests</label>
+            </value>
+            <value>
+                <fullName>RunAllTestsInOrg</fullName>
+                <default>false</default>
+                <label>Run All Tests In Org</label>
+            </value>
+            <value>
+                <fullName>NoTestRun</fullName>
+                <default>false</default>
+                <label>No Test Run</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>

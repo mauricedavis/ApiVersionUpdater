@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>Category__c</fullName>
+    <description>Category of the rule</description>
+    <externalId>false</externalId>
+    <fieldManageability>DeveloperControlled</fieldManageability>
+    <label>Category</label>
+    <required>true</required>
+    <type>Picklist</type>
+    <valueSet>
+        <restricted>true</restricted>
+        <valueSetDefinition>
+            <sorted>false</sorted>
+            <value>
+                <fullName>ApiVersionRisk</fullName>
+                <default>false</default>
+                <label>API Version Risk</label>
+            </value>
+            <value>
+                <fullName>DeprecatedAPI</fullName>
+                <default>false</default>
+                <label>Deprecated API</label>
+            </value>
+            <value>
+                <fullName>MissingDependency</fullName>
+                <default>false</default>
+                <label>Missing Dependency</label>
+            </value>
+            <value>
+                <fullName>Security</fullName>
+                <default>false</default>
+                <label>Security</label>
+            </value>
+            <value>
+                <fullName>BestPractice</fullName>
+                <default>false</default>
+                <label>Best Practice</label>
+            </value>
+            <value>
+                <fullName>Performance</fullName>
+                <default>false</default>
+                <label>Performance</label>
+            </value>
+        </valueSetDefinition>
+    </valueSet>
+</CustomField>
