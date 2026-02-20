@@ -1,18 +1,109 @@
-# Salesforce DX Project: Next Steps
+# API Version Updater
 
-Now that you’ve created a Salesforce DX project, what’s next? Here are some documentation resources to get you started.
+A comprehensive Lightning Web Component application for Salesforce that inventories, analyzes, and orchestrates API version upgrades for metadata components.
 
-## How Do You Plan to Deploy Your Changes?
+## Overview
 
-Do you want to deploy a set of changes, or create a self-contained application? Choose a [development model](https://developer.salesforce.com/tools/vscode/en/user-guide/development-models).
+This tool helps Salesforce administrators and developers:
+- **Inventory** all Apex classes, triggers, Visualforce pages, and other components with their current API versions
+- **Analyze** components for upgrade risks, deprecated APIs, and breaking changes
+- **Plan** controlled upgrades with dependency-aware deployment sequencing
+- **Execute** validated deployments with full audit trails
 
-## Configure Your Salesforce DX Project
+## Features
 
-The `sfdx-project.json` file contains useful configuration information for your project. See [Salesforce DX Project Configuration](https://developer.salesforce.com/docs/atlas.en-us.sfdx_dev.meta/sfdx_dev/sfdx_dev_ws_config.htm) in the _Salesforce DX Developer Guide_ for details about this file.
+### MVP (Phase 1 - Current)
+- Complete data model for scan tracking, findings, and change plans
+- Permission sets for role-based access (Scanner, Analyzer, Deployer Admin)
+- Custom Metadata Types for extensible rule packs
 
-## Read All About It
+### Planned Features
+- Tooling API integration for component inventory
+- Baseline comparison and drift detection
+- Rule-based static analysis with severity scoring
+- Dependency graph visualization
+- Metadata API deployment orchestration
 
-- [Salesforce Extensions Documentation](https://developer.salesforce.com/tools/vscode/)
-- [Salesforce CLI Setup Guide](https://developer.salesforce.com/docs/atlas.en-us.sfdx_setup.meta/sfdx_setup/sfdx_setup_intro.htm)
-- [Salesforce DX Developer Guide](https://developer.salesforce.com/docs/atlas.en-us.sfdx_dev.meta/sfdx_dev/sfdx_dev_intro.htm)
-- [Salesforce CLI Command Reference](https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference.htm)
+## Installation
+
+### Prerequisites
+- Salesforce CLI (`sf` command)
+- A Salesforce sandbox or scratch org
+
+### Deploy to Org
+```bash
+sf project deploy start --source-dir force-app --target-org YOUR_ORG_ALIAS
+```
+
+## Data Model
+
+### Custom Objects
+| Object | Purpose |
+|--------|---------|
+| `Scan__c` | Tracks inventory/analysis runs |
+| `ArtifactSnapshot__c` | Component snapshots with API versions |
+| `Finding__c` | Analysis findings with severity |
+| `ChangePlan__c` | Upgrade plans with validation status |
+| `ChangeItem__c` | Individual components in a plan |
+| `DeploymentRun__c` | Deployment execution records |
+| `AuditEvent__c` | Audit trail for compliance |
+
+### Custom Metadata Types
+| Type | Purpose |
+|------|---------|
+| `RulePack__mdt` | Collections of analysis rules |
+| `Rule__mdt` | Individual pattern-matching rules |
+
+### Permission Sets
+| Permission Set | Access Level |
+|----------------|--------------|
+| `Scanner_ReadOnly` | View scan results only |
+| `Analyzer` | Run scans and create plans |
+| `Deployer_Admin` | Full admin including deployments |
+
+## Architecture
+
+The application follows a two-track design:
+
+1. **Inventory/Analyze Track** (Safe, low permission)
+   - Uses Tooling API for fast reads
+   - Produces findings and recommendations
+   - Exportable reports
+
+2. **Deploy/Upgrade Track** (Admin-gated)
+   - Uses Metadata API for changes
+   - Dependency-aware deployment waves
+   - Validation gates and rollback support
+
+## Development
+
+### Project Structure
+```
+force-app/
+├── main/
+│   └── default/
+│       ├── objects/        # Custom objects and fields
+│       ├── customMetadata/ # Rule pack definitions
+│       ├── permissionsets/ # Access control
+│       ├── classes/        # Apex services (planned)
+│       └── lwc/            # UI components (planned)
+```
+
+### Running Tests
+```bash
+sf apex run test --target-org YOUR_ORG_ALIAS --code-coverage
+```
+
+## License
+
+MIT License
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Submit a pull request
+
+## Support
+
+For issues and feature requests, please use the [GitHub Issues](https://github.com/mauricedavis/ApiVersionUpdater/issues) page.
