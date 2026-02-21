@@ -51,6 +51,16 @@
                 <default>false</default>
                 <label>Performance</label>
             </value>
+            <value>
+                <fullName>VersionRisk</fullName>
+                <default>false</default>
+                <label>Version Risk</label>
+            </value>
+            <value>
+                <fullName>Drift</fullName>
+                <default>false</default>
+                <label>Drift</label>
+            </value>
         </valueSetDefinition>
     </valueSet>
 </CustomField>

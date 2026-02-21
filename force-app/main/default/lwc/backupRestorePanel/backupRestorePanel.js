@@ -10,6 +10,7 @@ import cleanupBackup from '@salesforce/apex/ApiVersionUpdaterController.cleanupB
 import restoreAll from '@salesforce/apex/ApiVersionUpdaterController.restoreAll';
 import restoreItem from '@salesforce/apex/ApiVersionUpdaterController.restoreItem';
 import getDiff from '@salesforce/apex/ApiVersionUpdaterController.getDiff';
+import getDeploymentHistory from '@salesforce/apex/ApiVersionUpdaterController.getDeploymentHistory';
 
 const COLUMNS = [
     { label: 'Name', fieldName: 'fullName', type: 'text', sortable: true },
@@ -32,23 +33,43 @@ const COLUMNS = [
     }
 ];
 
+const DEPLOYMENT_HISTORY_COLUMNS = [
+    { label: 'Component Name', fieldName: 'fullName', type: 'text', sortable: true },
+    { label: 'Type', fieldName: 'artifactType', type: 'text', sortable: true, initialWidth: 120 },
+    { label: 'From Version', fieldName: 'fromVersion', type: 'number', sortable: true, initialWidth: 110,
+        typeAttributes: { minimumFractionDigits: 1, maximumFractionDigits: 1 }
+    },
+    { label: 'To Version', fieldName: 'toVersion', type: 'number', sortable: true, initialWidth: 110,
+        typeAttributes: { minimumFractionDigits: 1, maximumFractionDigits: 1 }
+    },
+    { label: 'Status', fieldName: 'status', type: 'text', sortable: true, initialWidth: 100 },
+    { label: 'Deployed At', fieldName: 'deployedAt', type: 'date', sortable: true,
+        typeAttributes: { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }
+    }
+];
+
 export default class BackupRestorePanel extends LightningElement {
     @api deploymentRunId;
+    @api planId;
     @api hasBackup = false;
     
     @track backupSummary;
     @track backupItems = [];
+    @track deploymentHistoryItems = [];
     @track selectedItem;
     @track diffResult;
     @track previewContent;
+    @track activeSubTab = 'backup';
     
     columns = COLUMNS;
+    deploymentHistoryColumns = DEPLOYMENT_HISTORY_COLUMNS;
     isLoading = false;
     showPreviewModal = false;
     showDiffModal = false;
     showRestoreConfirmModal = false;
     showCleanupConfirmModal = false;
     restoreAllMode = false;
+    deploymentHistoryLoaded = false;
     
     wiredSummaryResult;
     wiredItemsResult;
@@ -270,6 +291,43 @@ export default class BackupRestorePanel extends LightningElement {
             refreshApex(this.wiredSummaryResult),
             refreshApex(this.wiredItemsResult)
         ]);
+    }
+
+    @api
+    async refresh() {
+        await this.refreshData();
+    }
+
+    get hasDeploymentHistory() {
+        return this.deploymentHistoryItems && this.deploymentHistoryItems.length > 0;
+    }
+
+    handleSubTabChange(event) {
+        this.activeSubTab = event.target.value;
+        if (this.activeSubTab === 'history' && !this.deploymentHistoryLoaded) {
+            this.loadDeploymentHistory();
+        }
+    }
+
+    async loadDeploymentHistory() {
+        if (!this.planId) return;
+        
+        this.isLoading = true;
+        try {
+            const history = await getDeploymentHistory({ planId: this.planId });
+            this.deploymentHistoryItems = history;
+            this.deploymentHistoryLoaded = true;
+        } catch (error) {
+            this.handleError(error);
+        } finally {
+            this.isLoading = false;
+        }
+    }
+
+    connectedCallback() {
+        if (this.planId) {
+            this.loadDeploymentHistory();
+        }
     }
     
     handleError(error) {

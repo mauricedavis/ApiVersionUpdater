@@ -56,6 +56,31 @@
                 <default>false</default>
                 <label>Settings Changed</label>
             </value>
+            <value>
+                <fullName>ChangePlanCreated</fullName>
+                <default>false</default>
+                <label>Change Plan Created</label>
+            </value>
+            <value>
+                <fullName>DeploymentStarted</fullName>
+                <default>false</default>
+                <label>Deployment Started</label>
+            </value>
+            <value>
+                <fullName>ScanCancelled</fullName>
+                <default>false</default>
+                <label>Scan Cancelled</label>
+            </value>
+            <value>
+                <fullName>BackupCreated</fullName>
+                <default>false</default>
+                <label>Backup Created</label>
+            </value>
+            <value>
+                <fullName>RestoreCompleted</fullName>
+                <default>false</default>
+                <label>Restore Completed</label>
+            </value>
         </valueSetDefinition>
     </valueSet>
 </CustomField>

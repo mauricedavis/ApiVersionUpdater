@@ -1,0 +1,133 @@
+.stepper-container {
+    padding: 0.5rem 1rem;
+    background: var(--slds-g-color-neutral-base-95, #f3f3f3);
+    border-radius: 0.25rem;
+    margin-bottom: 0.5rem;
+}
+
+.progress-label {
+    text-align: center;
+    font-size: 0.75rem;
+    color: var(--slds-g-color-neutral-base-30, #444);
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
+
+.stepper {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.5rem;
+}
+
+.step-wrapper {
+    display: flex;
+    flex: 1;
+    align-items: flex-start;
+}
+
+.step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+    min-width: 60px;
+    transition: all 0.2s ease;
+}
+
+.step:hover:not(.step-disabled) {
+    transform: translateY(-1px);
+}
+
+.step-disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.step-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0.25rem;
+    transition: all 0.2s ease;
+}
+
+.step-icon-completed {
+    background: var(--slds-g-color-success-base-50, #2e844a);
+    color: white;
+}
+
+.step-icon-current {
+    background: var(--slds-g-color-brand-base-50, #0176d3);
+    color: white;
+    box-shadow: 0 0 0 4px rgba(1, 118, 211, 0.2);
+}
+
+.step-icon-pending {
+    background: var(--slds-g-color-neutral-base-80, #c9c9c9);
+    color: var(--slds-g-color-neutral-base-50, #706e6b);
+}
+
+.step-number {
+    font-weight: 600;
+    font-size: 0.6875rem;
+}
+
+.step-label {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    color: var(--slds-g-color-neutral-base-10, #181818);
+    text-align: center;
+}
+
+.step-current .step-label {
+    color: var(--slds-g-color-brand-base-50, #0176d3);
+}
+
+.step-description {
+    display: none;
+}
+
+.connector {
+    flex: 1;
+    height: 2px;
+    margin-top: 13px;
+    margin-left: 0.25rem;
+    margin-right: 0.25rem;
+    border-radius: 1px;
+    transition: background 0.3s ease;
+}
+
+.connector-completed {
+    background: var(--slds-g-color-success-base-50, #2e844a);
+}
+
+.connector-pending {
+    background: var(--slds-g-color-neutral-base-80, #c9c9c9);
+}
+
+.connector-hidden {
+    visibility: hidden;
+}
+
+.progress-bar {
+    display: none;
+}
+
+@media (max-width: 768px) {
+    .step-label {
+        font-size: 0.625rem;
+    }
+    
+    .step {
+        min-width: 50px;
+    }
+    
+    .step-icon {
+        width: 24px;
+        height: 24px;
+    }
+}

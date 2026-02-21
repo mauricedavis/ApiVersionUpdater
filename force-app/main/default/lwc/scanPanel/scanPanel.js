@@ -114,6 +114,20 @@ export default class ScanPanel extends LightningElement {
         return Math.round((this.currentScan.processedArtifacts / this.currentScan.totalArtifacts) * 100);
     }
 
+    get isScanFailed() {
+        return this.currentScan && this.currentScan.status === 'Failed';
+    }
+
+    get scanErrorMessage() {
+        if (!this.currentScan || !this.currentScan.summary) return '';
+        return this.currentScan.summary.error || '';
+    }
+
+    get scanErrorStack() {
+        if (!this.currentScan || !this.currentScan.summary) return '';
+        return this.currentScan.summary.stackTrace || '';
+    }
+
     get hasRecentScans() {
         return this.recentScans && this.recentScans.length > 0;
     }

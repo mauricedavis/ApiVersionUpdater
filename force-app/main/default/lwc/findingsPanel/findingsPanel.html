@@ -1,44 +1,230 @@
 <template>
     <div class="slds-grid slds-gutters slds-wrap">
-        <!-- Summary Cards -->
+        <!-- Action Bar at Top -->
         <div class="slds-col slds-size_1-of-1 slds-m-bottom_medium">
-            <div class="slds-grid slds-gutters">
-                <div class="slds-col slds-size_1-of-4">
-                    <div class="slds-box summary-card summary-total">
-                        <div class="summary-value">{totalFindings}</div>
-                        <div class="summary-label">Total Findings</div>
+            <div class="slds-box slds-theme_shade action-bar">
+                <div class="slds-grid slds-gutters slds-grid_vertical-align-center">
+                    <div class="slds-col slds-size_2-of-3">
+                        <h2 class="slds-text-heading_small">
+                            <lightning-icon icon-name="utility:checkin" size="small" class="slds-m-right_x-small"></lightning-icon>
+                            Ready to upgrade? Create a change plan to update your components.
+                        </h2>
                     </div>
-                </div>
-                <div class="slds-col slds-size_1-of-4">
-                    <div class="slds-box summary-card summary-critical">
-                        <lightning-icon icon-name="utility:error" size="small" class="slds-m-right_x-small"></lightning-icon>
-                        <div class="summary-value">{criticalCount}</div>
-                        <div class="summary-label">Critical</div>
-                    </div>
-                </div>
-                <div class="slds-col slds-size_1-of-4">
-                    <div class="slds-box summary-card summary-warning">
-                        <lightning-icon icon-name="utility:warning" size="small" class="slds-m-right_x-small"></lightning-icon>
-                        <div class="summary-value">{warningCount}</div>
-                        <div class="summary-label">Warning</div>
-                    </div>
-                </div>
-                <div class="slds-col slds-size_1-of-4">
-                    <div class="slds-box summary-card summary-info">
-                        <lightning-icon icon-name="utility:info" size="small" class="slds-m-right_x-small"></lightning-icon>
-                        <div class="summary-value">{infoCount}</div>
-                        <div class="summary-label">Info</div>
+                    <div class="slds-col slds-size_1-of-3 slds-text-align_right">
+                        <lightning-button 
+                            variant="brand" 
+                            label="Create Change Plan"
+                            icon-name="utility:checkin"
+                            onclick={handleCreatePlan}
+                            disabled={hasBlockingFindings}
+                            title={createPlanDisabledReason}>
+                        </lightning-button>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Filters -->
+        <!-- Components Needing Upgrade Section -->
         <div class="slds-col slds-size_1-of-1 slds-m-bottom_medium">
-            <lightning-card>
-                <div class="slds-p-horizontal_medium slds-p-vertical_small">
-                    <div class="slds-grid slds-gutters slds-grid_vertical-align-end">
+            <lightning-card title="Components Needing Upgrade" icon-name="utility:warning">
+                <div slot="actions">
+                    <lightning-badge label={totalNonCompliant} class="count-badge"></lightning-badge>
+                </div>
+
+                <template lwc:if={isLoading}>
+                    <div class="slds-p-around_large slds-text-align_center">
+                        <lightning-spinner alternative-text="Loading..." size="medium"></lightning-spinner>
+                    </div>
+                </template>
+
+                <template lwc:elseif={error}>
+                    <div class="slds-p-around_medium slds-theme_error">
+                        <p>{error}</p>
+                    </div>
+                </template>
+
+                <template lwc:elseif={hasNonCompliantData}>
+                    <!-- Alert Banner -->
+                    <template lwc:if={alertCount}>
+                        <div class="slds-notify slds-notify_alert slds-alert_warning slds-m-horizontal_medium slds-m-top_medium" role="alert">
+                            <lightning-icon icon-name="utility:warning" size="small" variant="warning" class="slds-m-right_x-small"></lightning-icon>
+                            <span class="slds-text-body_regular">
+                                <strong>{alertCount} components</strong> have scan findings that require attention 
+                                (<strong>{criticalAlertCount}</strong> critical, <strong>{warningAlertCount}</strong> warnings).
+                                <a href="javascript:void(0);" onclick={handleScrollToFindings} class="alert-link">View Analysis Findings</a>
+                            </span>
+                        </div>
+                    </template>
+
+                    <!-- Summary Cards -->
+                    <div class="slds-p-horizontal_medium slds-p-top_medium">
+                        <div class="slds-grid slds-gutters slds-wrap">
+                            <div class="slds-col slds-size_1-of-5">
+                                <div class="slds-box type-card type-alerts">
+                                    <lightning-icon icon-name="utility:error" size="small" class="slds-m-right_x-small"></lightning-icon>
+                                    <div class="type-count">{alertCount}</div>
+                                    <div class="type-label">With Alerts</div>
+                                </div>
+                            </div>
+                            <div class="slds-col slds-size_1-of-5">
+                                <div class="slds-box type-card type-apex-class">
+                                    <lightning-icon icon-name="standard:apex" size="small" class="slds-m-right_x-small"></lightning-icon>
+                                    <div class="type-count">{apexClassCount}</div>
+                                    <div class="type-label">Apex Classes</div>
+                                </div>
+                            </div>
+                            <div class="slds-col slds-size_1-of-5">
+                                <div class="slds-box type-card type-apex-trigger">
+                                    <lightning-icon icon-name="standard:apex_plugin" size="small" class="slds-m-right_x-small"></lightning-icon>
+                                    <div class="type-count">{apexTriggerCount}</div>
+                                    <div class="type-label">Apex Triggers</div>
+                                </div>
+                            </div>
+                            <div class="slds-col slds-size_1-of-5">
+                                <div class="slds-box type-card type-vf-page">
+                                    <lightning-icon icon-name="standard:visualforce_page" size="small" class="slds-m-right_x-small"></lightning-icon>
+                                    <div class="type-count">{apexPageCount}</div>
+                                    <div class="type-label">VF Pages</div>
+                                </div>
+                            </div>
+                            <div class="slds-col slds-size_1-of-5">
+                                <div class="slds-box type-card type-vf-component">
+                                    <lightning-icon icon-name="standard:lightning_component" size="small" class="slds-m-right_x-small"></lightning-icon>
+                                    <div class="type-count">{apexComponentCount}</div>
+                                    <div class="type-label">VF Components</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab Navigation and Search -->
+                    <div class="slds-p-horizontal_medium slds-p-top_medium">
+                        <div class="slds-grid slds-gutters slds-grid_vertical-align-end">
+                            <div class="slds-col slds-size_1-of-2">
+                                <lightning-radio-group
+                                    name="componentTypeFilter"
+                                    options={componentTypeTabs}
+                                    value={activeTab}
+                                    type="button"
+                                    onchange={handleTabChange}>
+                                </lightning-radio-group>
+                            </div>
+                            <div class="slds-col slds-size_1-of-4">
+                                <lightning-input
+                                    type="checkbox"
+                                    label="Show only components with alerts"
+                                    checked={showOnlyAlerts}
+                                    onchange={handleShowAlertsToggle}>
+                                </lightning-input>
+                            </div>
+                            <div class="slds-col slds-size_1-of-4">
+                                <lightning-input
+                                    type="search"
+                                    placeholder="Search components..."
+                                    value={searchText}
+                                    onchange={handleSearchChange}>
+                                </lightning-input>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Grouped View (All tab) -->
+                    <template lwc:if={showGroupedView}>
+                        <div class="slds-p-around_medium">
+                            <template for:each={groupedComponents} for:item="group">
+                                <lightning-card key={group.type} class="slds-m-bottom_small group-card">
+                                    <h3 slot="title" class="slds-text-heading_small">
+                                        <lightning-icon icon-name={group.icon} size="small" class="slds-m-right_x-small"></lightning-icon>
+                                        {group.label}
+                                        <lightning-badge label={group.count} class="slds-m-left_x-small"></lightning-badge>
+                                        <template lwc:if={group.hasAlerts}>
+                                            <lightning-badge label={group.alertCount} class="slds-m-left_x-small alert-badge">
+                                            </lightning-badge>
+                                            <span class="slds-text-body_small slds-text-color_error slds-m-left_xx-small">alerts</span>
+                                        </template>
+                                    </h3>
+                                    <div class="slds-p-horizontal_small">
+                                        <lightning-datatable
+                                            key-field="id"
+                                            data={group.artifacts}
+                                            columns={columns}
+                                            hide-checkbox-column
+                                            show-row-number-column
+                                            onrowaction={handleRowAction}>
+                                        </lightning-datatable>
+                                    </div>
+                                </lightning-card>
+                            </template>
+                        </div>
+                    </template>
+
+                    <!-- Single Type View -->
+                    <template lwc:else>
+                        <div class="slds-p-around_medium">
+                            <lightning-datatable
+                                key-field="id"
+                                data={filteredComponents}
+                                columns={columns}
+                                hide-checkbox-column
+                                show-row-number-column
+                                onrowaction={handleRowAction}>
+                            </lightning-datatable>
+                        </div>
+                    </template>
+                </template>
+
+                <template lwc:else>
+                    <div class="slds-p-around_large slds-text-align_center">
+                        <lightning-icon icon-name="utility:success" size="large" variant="success" class="slds-m-bottom_medium"></lightning-icon>
+                        <h3 class="slds-text-heading_medium">All Components Compliant!</h3>
+                        <p class="slds-text-color_weak slds-m-top_small">
+                            All components are at or above the target API version.
+                        </p>
+                    </div>
+                </template>
+            </lightning-card>
+        </div>
+
+        <!-- Analysis Findings Section -->
+        <div class="slds-col slds-size_1-of-1 analysis-findings-section">
+            <lightning-card title="Analysis Findings" icon-name="utility:info">
+                <!-- Summary Cards -->
+                <div class="slds-p-around_medium">
+                    <div class="slds-grid slds-gutters">
                         <div class="slds-col slds-size_1-of-4">
+                            <div class="slds-box summary-card summary-total">
+                                <div class="summary-value">{totalFindings}</div>
+                                <div class="summary-label">Total Findings</div>
+                            </div>
+                        </div>
+                        <div class="slds-col slds-size_1-of-4">
+                            <div class="slds-box summary-card summary-critical">
+                                <lightning-icon icon-name="utility:error" size="small" class="slds-m-right_x-small"></lightning-icon>
+                                <div class="summary-value">{criticalCount}</div>
+                                <div class="summary-label">Critical</div>
+                            </div>
+                        </div>
+                        <div class="slds-col slds-size_1-of-4">
+                            <div class="slds-box summary-card summary-warning">
+                                <lightning-icon icon-name="utility:warning" size="small" class="slds-m-right_x-small"></lightning-icon>
+                                <div class="summary-value">{warningCount}</div>
+                                <div class="summary-label">Warning</div>
+                            </div>
+                        </div>
+                        <div class="slds-col slds-size_1-of-4">
+                            <div class="slds-box summary-card summary-info">
+                                <lightning-icon icon-name="utility:info" size="small" class="slds-m-right_x-small"></lightning-icon>
+                                <div class="summary-value">{infoCount}</div>
+                                <div class="summary-label">Info</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Filters -->
+                <div class="slds-p-horizontal_medium slds-p-bottom_small">
+                    <div class="slds-grid slds-gutters slds-grid_vertical-align-end">
+                        <div class="slds-col slds-size_1-of-3">
                             <lightning-combobox
                                 name="severityFilter"
                                 label="Severity"
@@ -47,7 +233,7 @@
                                 onchange={handleFilterChange}>
                             </lightning-combobox>
                         </div>
-                        <div class="slds-col slds-size_1-of-4">
+                        <div class="slds-col slds-size_1-of-3">
                             <lightning-combobox
                                 name="categoryFilter"
                                 label="Category"
@@ -56,37 +242,14 @@
                                 onchange={handleFilterChange}>
                             </lightning-combobox>
                         </div>
-                        <div class="slds-col slds-size_1-of-4">
-                            <lightning-input
-                                type="search"
-                                name="searchText"
-                                label="Search"
-                                placeholder="Search findings..."
-                                value={searchText}
-                                onchange={handleSearchChange}>
-                            </lightning-input>
-                        </div>
-                        <div class="slds-col slds-size_1-of-4">
-                            <lightning-button 
-                                variant="brand" 
-                                label="Create Change Plan"
-                                icon-name="utility:checkin"
-                                onclick={handleCreatePlan}
-                                disabled={hasBlockingFindings}>
-                            </lightning-button>
-                        </div>
                     </div>
                 </div>
-            </lightning-card>
-        </div>
 
-        <!-- Findings List -->
-        <div class="slds-col slds-size_1-of-1">
-            <lightning-card title="Findings">
-                <template if:true={hasFindings}>
+                <!-- Findings List -->
+                <template lwc:if={hasFindings}>
                     <div class="slds-p-around_medium">
                         <template for:each={filteredFindings} for:item="finding">
-                            <div key={finding.id} class="finding-item slds-box slds-m-bottom_small">
+                            <div key={finding.id} class="finding-item slds-box slds-m-bottom_small" data-finding-name={finding.artifactName}>
                                 <div class="slds-grid slds-gutters">
                                     <div class="slds-col slds-size_1-of-12">
                                         <span class={finding.severityClass}>
@@ -98,14 +261,14 @@
                                         </span>
                                     </div>
                                     <div class="slds-col slds-size_8-of-12">
-                                        <div class="slds-text-heading_small">{finding.artifactName}</div>
+                                        <div class="slds-text-heading_small finding-name">{finding.artifactName}</div>
                                         <div class="slds-text-body_regular slds-m-top_xx-small">{finding.summary}</div>
-                                        <template if:true={finding.details}>
+                                        <template lwc:if={finding.details}>
                                             <div class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">
                                                 {finding.details}
                                             </div>
                                         </template>
-                                        <template if:true={finding.suggestedAction}>
+                                        <template lwc:if={finding.suggestedAction}>
                                             <div class="slds-m-top_x-small">
                                                 <lightning-badge label="Suggested Action" class="slds-m-right_x-small"></lightning-badge>
                                                 <span class="slds-text-body_small">{finding.suggestedAction}</span>
@@ -115,7 +278,7 @@
                                     <div class="slds-col slds-size_3-of-12 slds-text-align_right">
                                         <lightning-badge label={finding.category} class="slds-m-right_x-small"></lightning-badge>
                                         <lightning-badge label={finding.ruleId}></lightning-badge>
-                                        <template if:true={finding.isBlocking}>
+                                        <template lwc:if={finding.isBlocking}>
                                             <div class="slds-m-top_x-small">
                                                 <lightning-badge label="BLOCKING" class="blocking-badge"></lightning-badge>
                                             </div>
@@ -127,12 +290,12 @@
                     </div>
                 </template>
 
-                <template if:false={hasFindings}>
+                <template lwc:else>
                     <div class="slds-p-around_large slds-text-align_center">
                         <lightning-icon icon-name="utility:success" size="large" variant="success" class="slds-m-bottom_medium"></lightning-icon>
-                        <h3 class="slds-text-heading_medium">No Findings</h3>
+                        <h3 class="slds-text-heading_medium">No Analysis Findings</h3>
                         <p class="slds-text-color_weak slds-m-top_small">
-                            No issues were found during the analysis.
+                            No rule-based issues were detected during the scan.
                         </p>
                     </div>
                 </template>

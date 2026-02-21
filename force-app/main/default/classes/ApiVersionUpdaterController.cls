@@ -56,6 +56,11 @@ public with sharing class ApiVersionUpdaterController {
     }
     
     @AuraEnabled
+    public static InventoryService.NonCompliantComponentsDto getNonCompliantComponents(Decimal targetApiVersion, String scopePolicy) {
+        return InventoryService.getNonCompliantComponents(targetApiVersion, scopePolicy);
+    }
+    
+    @AuraEnabled
     public static ContentService.ContentDto fetchContent(String artifactId, String artifactType) {
         return ContentService.fetchContent(artifactId, artifactType);
     }
@@ -111,6 +116,16 @@ public with sharing class ApiVersionUpdaterController {
     @AuraEnabled
     public static String executePlan(String planId) {
         return DeploymentService.executePlan(planId);
+    }
+    
+    @AuraEnabled
+    public static String executePlanWithBackup(String planId, Boolean createBackup, List<String> selectedItemIds) {
+        return DeploymentService.executePlanWithBackup(planId, createBackup, selectedItemIds);
+    }
+    
+    @AuraEnabled
+    public static void resetPlanForRetry(String planId) {
+        DeploymentService.resetPlanForRetry(planId);
     }
     
     @AuraEnabled
@@ -182,5 +197,193 @@ public with sharing class ApiVersionUpdaterController {
     @AuraEnabled
     public static void toggleBackupSchedule(Boolean enable) {
         BackupNotificationSchedulable.toggleSchedule(enable);
+    }
+    
+    // Session Service Methods
+    
+    @AuraEnabled
+    public static SessionService.SessionDto getCurrentSession() {
+        return SessionService.getCurrentSession();
+    }
+    
+    @AuraEnabled
+    public static SessionService.SessionDto updateSessionScan(String scanId) {
+        return SessionService.updateSessionScan(scanId);
+    }
+    
+    @AuraEnabled
+    public static SessionService.SessionDto updateSessionPlan(String planId) {
+        return SessionService.updateSessionPlan(planId);
+    }
+    
+    @AuraEnabled
+    public static SessionService.SessionDto updateSessionDeploymentRun(String deploymentRunId) {
+        return SessionService.updateSessionDeploymentRun(deploymentRunId);
+    }
+    
+    @AuraEnabled
+    public static void clearSession() {
+        SessionService.clearSession();
+    }
+    
+    @AuraEnabled(cacheable=true)
+    public static List<SessionService.ScanSummaryDto> getScanHistory() {
+        return SessionService.getScanHistory();
+    }
+    
+    @AuraEnabled(cacheable=true)
+    public static List<SessionService.PlanSummaryDto> getPlanHistory() {
+        return SessionService.getPlanHistory();
+    }
+    
+    @AuraEnabled
+    public static Map<String, Object> getDeploymentRunDetails(String runId) {
+        if (String.isBlank(runId)) {
+            return null;
+        }
+        
+        List<DeploymentRun__c> runs = [
+            SELECT Id, Name, Status__c, StartedAt__c, FinishedAt__c, 
+                   ResultsJson__c, ValidateOnly__c, ChangePlan__c,
+                   ChangePlan__r.Name, ChangePlan__r.Status__c
+            FROM DeploymentRun__c
+            WHERE Id = :runId
+            LIMIT 1
+        ];
+        
+        if (runs.isEmpty()) {
+            return null;
+        }
+        
+        DeploymentRun__c run = runs[0];
+        
+        Map<String, Object> result = new Map<String, Object>{
+            'runId' => run.Id,
+            'name' => run.Name,
+            'status' => run.Status__c,
+            'startedAt' => run.StartedAt__c,
+            'finishedAt' => run.FinishedAt__c,
+            'validateOnly' => run.ValidateOnly__c,
+            'planId' => run.ChangePlan__c,
+            'planName' => run.ChangePlan__r?.Name,
+            'planStatus' => run.ChangePlan__r?.Status__c
+        };
+        
+        if (String.isNotBlank(run.ResultsJson__c)) {
+            try {
+                Map<String, Object> resultsData = (Map<String, Object>) JSON.deserializeUntyped(run.ResultsJson__c);
+                result.put('results', resultsData);
+                
+                if (resultsData.containsKey('error')) {
+                    result.put('errorMessage', resultsData.get('error'));
+                }
+                if (resultsData.containsKey('stackTrace')) {
+                    result.put('errorStackTrace', resultsData.get('stackTrace'));
+                }
+            } catch (Exception e) {
+                result.put('resultsParseError', e.getMessage());
+            }
+        }
+        
+        return result;
+    }
+
+    @AuraEnabled
+    public static Map<String, Object> getDeploymentErrorsForPlan(String planId) {
+        if (String.isBlank(planId)) {
+            return null;
+        }
+        
+        Map<String, Object> result = new Map<String, Object>();
+        
+        List<DeploymentRun__c> runs = [
+            SELECT Id, Name, Status__c, StartedAt__c, FinishedAt__c, 
+                   ResultsJson__c, ValidateOnly__c
+            FROM DeploymentRun__c
+            WHERE ChangePlan__c = :planId
+            ORDER BY CreatedDate DESC
+            LIMIT 1
+        ];
+        
+        if (!runs.isEmpty()) {
+            DeploymentRun__c run = runs[0];
+            result.put('runId', run.Id);
+            result.put('runName', run.Name);
+            result.put('runStatus', run.Status__c);
+            result.put('runStartedAt', run.StartedAt__c);
+            result.put('runFinishedAt', run.FinishedAt__c);
+            
+            if (String.isNotBlank(run.ResultsJson__c)) {
+                try {
+                    Map<String, Object> resultsData = (Map<String, Object>) JSON.deserializeUntyped(run.ResultsJson__c);
+                    if (resultsData.containsKey('error')) {
+                        result.put('runError', resultsData.get('error'));
+                    }
+                    if (resultsData.containsKey('stackTrace')) {
+                        result.put('runStackTrace', resultsData.get('stackTrace'));
+                    }
+                } catch (Exception e) {
+                    // Ignore parse errors
+                }
+            }
+        }
+        
+        List<ChangeItem__c> failedItems = [
+            SELECT Id, FullName__c, ArtifactType__c, ErrorDetails__c, ApplyStatus__c
+            FROM ChangeItem__c
+            WHERE ChangePlan__c = :planId
+            AND ApplyStatus__c = 'Failed'
+            ORDER BY UnitNumber__c
+            LIMIT 50
+        ];
+        
+        List<Map<String, Object>> itemErrors = new List<Map<String, Object>>();
+        for (ChangeItem__c item : failedItems) {
+            itemErrors.add(new Map<String, Object>{
+                'id' => item.Id,
+                'fullName' => item.FullName__c,
+                'artifactType' => item.ArtifactType__c,
+                'errorDetails' => item.ErrorDetails__c,
+                'applyStatus' => item.ApplyStatus__c
+            });
+        }
+        result.put('failedItems', itemErrors);
+        result.put('failedItemCount', failedItems.size());
+        
+        return result;
+    }
+
+    @AuraEnabled
+    public static List<Map<String, Object>> getDeploymentHistory(String planId) {
+        List<Map<String, Object>> historyItems = new List<Map<String, Object>>();
+        
+        if (String.isBlank(planId)) {
+            return historyItems;
+        }
+        
+        List<ChangeItem__c> items = [
+            SELECT Id, FullName__c, ArtifactType__c, CurrentApiVersion__c, 
+                   TargetApiVersion__c, ApplyStatus__c, ErrorDetails__c,
+                   LastModifiedDate
+            FROM ChangeItem__c
+            WHERE ChangePlan__c = :planId
+            AND ApplyStatus__c = 'Applied'
+            ORDER BY LastModifiedDate DESC
+            LIMIT 200
+        ];
+        
+        for (ChangeItem__c item : items) {
+            historyItems.add(new Map<String, Object>{
+                'id' => item.Id,
+                'fullName' => item.FullName__c,
+                'artifactType' => item.ArtifactType__c,
+                'fromVersion' => item.CurrentApiVersion__c,
+                'toVersion' => item.TargetApiVersion__c,
+                'status' => item.ApplyStatus__c,
+                'deployedAt' => item.LastModifiedDate
+            });
+        }
+        
+        return historyItems;
     }
 }

@@ -12,8 +12,13 @@
         <valueSetDefinition>
             <sorted>false</sorted>
             <value>
-                <fullName>Running</fullName>
+                <fullName>Queued</fullName>
                 <default>true</default>
+                <label>Queued</label>
+            </value>
+            <value>
+                <fullName>Running</fullName>
+                <default>false</default>
                 <label>Running</label>
             </value>
             <value>

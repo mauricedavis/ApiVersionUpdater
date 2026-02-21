@@ -51,8 +51,40 @@ public with sharing class BackupService {
             throw new AuraHandledException('No eligible items to backup');
         }
         
+        return createBackupForItems(deploymentRunId, changeItems);
+    }
+    
+    @AuraEnabled
+    public static String createBackupForSelectedItems(String deploymentRunId, List<String> selectedItemIds) {
+        DeploymentRun__c run = [
+            SELECT Id, ChangePlan__c, BackupCreatedAt__c
+            FROM DeploymentRun__c 
+            WHERE Id = :deploymentRunId
+        ];
+        
+        if (run.BackupCreatedAt__c != null) {
+            throw new AuraHandledException('Backup already exists for this deployment');
+        }
+        
+        if (selectedItemIds == null || selectedItemIds.isEmpty()) {
+            throw new AuraHandledException('No items selected for backup');
+        }
+        
+        List<ChangeItem__c> changeItems = [
+            SELECT Id, ArtifactType__c, FullName__c, CurrentApiVersion__c, Eligibility__c
+            FROM ChangeItem__c
+            WHERE Id IN :selectedItemIds
+        ];
+        
+        if (changeItems.isEmpty()) {
+            throw new AuraHandledException('No items found for backup');
+        }
+        
+        return createBackupForItems(deploymentRunId, changeItems);
+    }
+    
+    private static String createBackupForItems(String deploymentRunId, List<ChangeItem__c> changeItems) {
         List<BackupItem__c> backupItems = new List<BackupItem__c>();
-        List<ContentVersion> contentVersions = new List<ContentVersion>();
         Map<String, BackupItem__c> itemsByKey = new Map<String, BackupItem__c>();
         
         for (ChangeItem__c item : changeItems) {
@@ -73,6 +105,7 @@ public with sharing class BackupService {
         
         createBackupFiles(backupItems);
         
+        DeploymentRun__c run = new DeploymentRun__c(Id = deploymentRunId);
         run.BackupCreatedAt__c = Datetime.now();
         run.BackupExpirationDate__c = Date.today().addDays(BACKUP_RETENTION_DAYS);
         run.BackupOwner__c = UserInfo.getUserId();

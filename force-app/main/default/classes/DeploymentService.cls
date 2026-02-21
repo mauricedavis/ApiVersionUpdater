@@ -172,13 +172,18 @@ public with sharing class DeploymentService {
     
     @AuraEnabled
     public static String executePlan(String planId) {
+        return executePlanWithBackup(planId, false, new List<String>());
+    }
+    
+    @AuraEnabled
+    public static String executePlanWithBackup(String planId, Boolean createBackup, List<String> selectedItemIds) {
         ChangePlan__c plan = [
             SELECT Id, Status__c, ValidationMode__c, TestPolicy__c, TargetApiVersion__c
             FROM ChangePlan__c 
             WHERE Id = :planId
         ];
         
-        if (plan.Status__c != 'Draft' && plan.Status__c != 'Ready') {
+        if (plan.Status__c != 'Draft' && plan.Status__c != 'Ready' && plan.Status__c != 'Validated') {
             throw new AuraHandledException('Plan cannot be executed in status: ' + plan.Status__c);
         }
         
@@ -193,18 +198,60 @@ public with sharing class DeploymentService {
         );
         insert run;
         
+        if (createBackup) {
+            if (selectedItemIds == null || selectedItemIds.isEmpty()) {
+                throw new AuraHandledException('Backup requested but no items were selected. Please select items and validate before deploying.');
+            }
+            try {
+                BackupService.createBackupForSelectedItems(run.Id, selectedItemIds);
+            } catch (Exception e) {
+                throw new AuraHandledException('Backup creation failed: ' + e.getMessage());
+            }
+        }
+        
         plan.Status__c = 'Executing';
         update plan;
         
         logAuditEvent('DeploymentStarted', new Map<String, Object>{
             'planId' => planId,
             'runId' => run.Id,
-            'validateOnly' => validateOnly
+            'validateOnly' => validateOnly,
+            'backupCreated' => createBackup,
+            'selectedItemCount' => selectedItemIds != null ? selectedItemIds.size() : 0
         });
         
-        System.enqueueJob(new DeploymentQueueable(run.Id, planId));
+        System.enqueueJob(new DeploymentQueueable(run.Id, planId, selectedItemIds));
         
         return run.Id;
+    }
+    
+    @AuraEnabled
+    public static void resetPlanForRetry(String planId) {
+        ChangePlan__c plan = [
+            SELECT Id, Status__c FROM ChangePlan__c WHERE Id = :planId
+        ];
+        
+        // Allow reset from any non-Draft status
+        if (plan.Status__c != 'Draft') {
+            plan.Status__c = 'Draft';
+            update plan;
+        }
+        
+        // Always reset all items to Pending
+        List<ChangeItem__c> items = [
+            SELECT Id, ApplyStatus__c, ErrorDetails__c
+            FROM ChangeItem__c
+            WHERE ChangePlan__c = :planId
+        ];
+        
+        for (ChangeItem__c item : items) {
+            item.ApplyStatus__c = 'Pending';
+            item.ErrorDetails__c = null;
+        }
+        
+        if (!items.isEmpty()) {
+            update items;
+        }
     }
     
     private static void updatePlanSummary(String planId) {
@@ -243,10 +290,12 @@ public with sharing class DeploymentService {
     public class DeploymentQueueable implements Queueable, Database.AllowsCallouts {
         private String runId;
         private String planId;
+        private List<String> selectedItemIds;
         
-        public DeploymentQueueable(String runId, String planId) {
+        public DeploymentQueueable(String runId, String planId, List<String> selectedItemIds) {
             this.runId = runId;
             this.planId = planId;
+            this.selectedItemIds = selectedItemIds != null ? selectedItemIds : new List<String>();
         }
         
         public void execute(QueueableContext context) {
@@ -279,19 +328,32 @@ public with sharing class DeploymentService {
             );
             update run;
             
-            List<ChangeItem__c> eligibleItems = [
-                SELECT Id, ArtifactType__c, FullName__c, CurrentApiVersion__c, 
-                       TargetApiVersion__c, ApplyStatus__c
-                FROM ChangeItem__c
-                WHERE ChangePlan__c = :planId
-                AND Eligibility__c = 'Eligible'
-                ORDER BY UnitNumber__c
-            ];
+            List<ChangeItem__c> itemsToProcess;
+            
+            if (selectedItemIds != null && !selectedItemIds.isEmpty()) {
+                itemsToProcess = [
+                    SELECT Id, ArtifactType__c, FullName__c, CurrentApiVersion__c, 
+                           TargetApiVersion__c, ApplyStatus__c
+                    FROM ChangeItem__c
+                    WHERE Id IN :selectedItemIds
+                    AND Eligibility__c = 'Eligible'
+                    ORDER BY UnitNumber__c
+                ];
+            } else {
+                itemsToProcess = [
+                    SELECT Id, ArtifactType__c, FullName__c, CurrentApiVersion__c, 
+                           TargetApiVersion__c, ApplyStatus__c
+                    FROM ChangeItem__c
+                    WHERE ChangePlan__c = :planId
+                    AND Eligibility__c = 'Eligible'
+                    ORDER BY UnitNumber__c
+                ];
+            }
             
             Integer successCount = 0;
             Integer failCount = 0;
             
-            for (ChangeItem__c item : eligibleItems) {
+            for (ChangeItem__c item : itemsToProcess) {
                 try {
                     item.ApplyStatus__c = 'Applied';
                     successCount++;
@@ -302,20 +364,22 @@ public with sharing class DeploymentService {
                 }
             }
             
-            update eligibleItems;
+            if (!itemsToProcess.isEmpty()) {
+                update itemsToProcess;
+            }
             
-            run.Status__c = failCount == 0 ? 'Succeeded' : 'PartialSuccess';
+            run.Status__c = failCount == 0 ? 'Completed' : 'Failed';
             run.FinishedAt__c = Datetime.now();
             run.ResultsJson__c = JSON.serialize(new Map<String, Object>{
                 'successCount' => successCount,
                 'failCount' => failCount,
-                'totalProcessed' => eligibleItems.size()
+                'totalProcessed' => itemsToProcess.size()
             });
             update run;
             
             ChangePlan__c plan = new ChangePlan__c(
                 Id = planId,
-                Status__c = failCount == 0 ? 'Completed' : 'PartiallyCompleted'
+                Status__c = failCount == 0 ? 'Deployed' : 'Failed'
             );
             update plan;
         }

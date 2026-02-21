@@ -27,6 +27,11 @@
                 <label>Deployed</label>
             </value>
             <value>
+                <fullName>Applied</fullName>
+                <default>false</default>
+                <label>Applied</label>
+            </value>
+            <value>
                 <fullName>Failed</fullName>
                 <default>false</default>
                 <label>Failed</label>

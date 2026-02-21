@@ -1,0 +1,119 @@
+<template>
+    <lightning-card title="Current Session" icon-name="utility:database">
+        <div slot="actions">
+            <template lwc:if={showClearButton}>
+                <lightning-button-icon 
+                    icon-name="utility:refresh" 
+                    alternative-text="Clear Session"
+                    title="Start New Session"
+                    onclick={handleClearSession}>
+                </lightning-button-icon>
+            </template>
+        </div>
+
+        <div class="slds-p-horizontal_medium slds-p-bottom_small">
+            <div class="summary-grid">
+                <!-- Scan Section -->
+                <div class="summary-section" onclick={handleScanClick}>
+                    <div class="section-header">
+                        <lightning-icon icon-name="utility:search" size="x-small"></lightning-icon>
+                        <span class="section-title">Current Scan</span>
+                    </div>
+                    <div class="section-content">
+                        <div class="item-name">{displayScanName}</div>
+                        <template lwc:if={hasScan}>
+                            <div class="item-meta">
+                                <span class={scanStatusClass}>{displayScanStatus}</span>
+                                <span class="meta-separator">•</span>
+                                <span class="meta-value">{formattedScanDate}</span>
+                            </div>
+                            <div class="item-stats">
+                                <div class="item-stat">
+                                    <span class="stat-value">{componentsNeedingUpgrade}</span>
+                                    <span class="stat-label">need upgrade</span>
+                                </div>
+                                <div class="item-stat alerts-stat">
+                                    <span class="stat-value slds-text-color_error">{alertsCount}</span>
+                                    <span class="stat-label">alerts</span>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Plan Section -->
+                <div class="summary-section" onclick={handlePlanClick}>
+                    <div class="section-header">
+                        <lightning-icon icon-name="utility:edit" size="x-small"></lightning-icon>
+                        <span class="section-title">Change Plan</span>
+                    </div>
+                    <div class="section-content">
+                        <div class="item-name">{displayPlanName}</div>
+                        <template lwc:if={hasPlan}>
+                            <template lwc:if={sourceScanName}>
+                                <div class="source-scan-ref">from {sourceScanName}</div>
+                            </template>
+                            <div class="item-meta">
+                                <span class={planStatusClass}>{displayPlanStatus}</span>
+                            </div>
+                            <template lwc:if={displayPlanItemCount}>
+                                <div class="item-stat">
+                                    <span class="stat-value">{displayPlanItemCount}</span>
+                                    <span class="stat-label">items</span>
+                                </div>
+                            </template>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Deployment Section -->
+                <div class="summary-section" onclick={handleDeploymentClick}>
+                    <div class="section-header">
+                        <lightning-icon icon-name="utility:upload" size="x-small"></lightning-icon>
+                        <span class="section-title">Deployment</span>
+                    </div>
+                    <div class="section-content">
+                        <template lwc:if={hasDeployment}>
+                            <div class="item-meta">
+                                <span class={deploymentStatusClass}>{displayDeploymentStatus}</span>
+                            </div>
+                            <template lwc:if={hasDeploymentStats}>
+                                <div class="item-stats">
+                                    <div class="item-stat">
+                                        <span class="stat-value slds-text-color_success">{deploymentSuccessCount}</span>
+                                        <span class="stat-label">updated</span>
+                                    </div>
+                                    <template lwc:if={hasDeploymentFailures}>
+                                        <div class="item-stat">
+                                            <span class="stat-value slds-text-color_error">{deploymentFailCount}</span>
+                                            <span class="stat-label">failed</span>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                        </template>
+                        <template lwc:else>
+                            <div class="item-name">No deployment</div>
+                        </template>
+                    </div>
+                </div>
+
+                <!-- Target Version -->
+                <div class="summary-section target-section">
+                    <div class="section-header">
+                        <lightning-icon icon-name="utility:target" size="x-small"></lightning-icon>
+                        <span class="section-title">Target API</span>
+                    </div>
+                    <div class="section-content">
+                        <template lwc:if={targetApiVersion}>
+                            <div class="target-version">v{targetApiVersion}</div>
+                        </template>
+                        <template lwc:else>
+                            <div class="item-name">Not set</div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </lightning-card>
+</template>

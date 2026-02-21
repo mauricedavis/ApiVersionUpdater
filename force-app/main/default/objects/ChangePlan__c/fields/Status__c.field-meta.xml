@@ -32,6 +32,11 @@
                 <label>Deploying</label>
             </value>
             <value>
+                <fullName>Executing</fullName>
+                <default>false</default>
+                <label>Executing</label>
+            </value>
+            <value>
                 <fullName>Deployed</fullName>
                 <default>false</default>
                 <label>Deployed</label>

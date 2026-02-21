@@ -1,0 +1,81 @@
+<template>
+    <div class="selector-container">
+        <button class="selector-trigger" onclick={toggleDropdown}>
+            <span class="trigger-label">{currentLabel}</span>
+            <lightning-icon 
+                icon-name={dropdownIcon} 
+                size="x-small"
+                alternative-text="Toggle">
+            </lightning-icon>
+        </button>
+
+        <template lwc:if={isOpen}>
+            <div class="dropdown-panel">
+                <div class="dropdown-header">
+                    <lightning-input
+                        type="search"
+                        placeholder="Search..."
+                        value={searchTerm}
+                        onchange={handleSearchChange}
+                        variant="label-hidden">
+                    </lightning-input>
+                </div>
+
+                <div class="dropdown-content">
+                    <template lwc:if={hasItems}>
+                        <ul class="item-list" role="listbox">
+                            <template for:each={items} for:item="item">
+                                <li key={item.id} 
+                                    class={item.itemClass}
+                                    data-id={item.id}
+                                    onclick={handleItemSelect}
+                                    role="option">
+                                    <div class="item-main">
+                                        <span class="item-name">{item.displayName}</span>
+                                        <span class={item.statusClass}>{item.status}</span>
+                                    </div>
+                                    <div class="item-meta">
+                                        <template lwc:if={isScanMode}>
+                                            <span class="meta-item">
+                                                <lightning-icon icon-name="utility:warning" size="xx-small"></lightning-icon>
+                                                {item.findingsCount} findings
+                                            </span>
+                                        </template>
+                                        <template lwc:if={isPlanMode}>
+                                            <span class="meta-item">
+                                                <lightning-icon icon-name="utility:layers" size="xx-small"></lightning-icon>
+                                                {item.itemCount} items
+                                            </span>
+                                        </template>
+                                        <template lwc:if={item.targetApiVersion}>
+                                            <span class="meta-item">
+                                                Target: v{item.targetApiVersion}
+                                            </span>
+                                        </template>
+                                    </div>
+                                </li>
+                            </template>
+                        </ul>
+                    </template>
+                    <template lwc:else>
+                        <div class="no-items">
+                            <lightning-icon icon-name="utility:info" size="small"></lightning-icon>
+                            <p>{noItemsMessage}</p>
+                        </div>
+                    </template>
+                </div>
+
+                <template lwc:if={isScanMode}>
+                    <div class="dropdown-footer">
+                        <lightning-button 
+                            label="Start New Scan" 
+                            variant="brand"
+                            onclick={handleNewScan}
+                            class="full-width-button">
+                        </lightning-button>
+                    </div>
+                </template>
+            </div>
+        </template>
+    </div>
+</template>

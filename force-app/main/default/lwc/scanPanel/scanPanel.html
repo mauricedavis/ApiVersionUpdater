@@ -2,8 +2,8 @@
     <div class="slds-grid slds-gutters slds-wrap">
         <!-- Current Scan Status -->
         <div class="slds-col slds-size_1-of-1 slds-m-bottom_medium">
-            <template if:true={hasCurrentScan}>
-                <lightning-card title="Current Scan">
+            <template lwc:if={hasCurrentScan}>
+                <lightning-card title="Current Scan" icon-name="utility:search">
                     <div class="slds-p-around_medium">
                         <div class="slds-grid slds-gutters">
                             <div class="slds-col slds-size_1-of-4">
@@ -28,7 +28,7 @@
                             </div>
                         </div>
 
-                        <template if:true={isScanRunning}>
+                        <template lwc:if={isScanRunning}>
                             <div class="slds-m-top_medium">
                                 <lightning-progress-bar value={scanProgress} size="large" variant="circular"></lightning-progress-bar>
                                 <div class="slds-text-align_center slds-m-top_x-small slds-text-color_weak">
@@ -43,77 +43,43 @@
                                 </lightning-button>
                             </div>
                         </template>
+
+                        <template lwc:if={isScanFailed}>
+                            <div class="slds-m-top_medium slds-box slds-theme_error">
+                                <div class="slds-text-heading_small slds-m-bottom_x-small">
+                                    <lightning-icon icon-name="utility:error" size="small" variant="inverse" class="slds-m-right_x-small"></lightning-icon>
+                                    Scan Failed
+                                </div>
+                                <p class="slds-text-body_regular">{scanErrorMessage}</p>
+                                <template lwc:if={scanErrorStack}>
+                                    <details class="slds-m-top_small">
+                                        <summary class="slds-text-body_small">Stack Trace</summary>
+                                        <pre class="slds-text-body_small slds-m-top_x-small" style="white-space: pre-wrap; font-size: 11px;">{scanErrorStack}</pre>
+                                    </details>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+                </lightning-card>
+            </template>
+            <template lwc:else>
+                <lightning-card title="Current Scan" icon-name="utility:search">
+                    <div class="slds-p-around_medium slds-text-align_center">
+                        <lightning-icon icon-name="utility:info" size="large" class="slds-m-bottom_small"></lightning-icon>
+                        <h3 class="slds-text-heading_small slds-m-bottom_x-small">No Active Scan</h3>
+                        <p class="slds-text-body_regular slds-text-color_weak">
+                            Start a compliance scan from the Dashboard to analyze your components.
+                        </p>
                     </div>
                 </lightning-card>
             </template>
         </div>
 
-        <!-- Scan Configuration -->
-        <div class="slds-col slds-size_1-of-2">
-            <lightning-card title="New Scan">
-                <div class="slds-p-around_medium">
-                    <lightning-combobox
-                        name="targetVersion"
-                        label="Target API Version"
-                        value={scanConfig.targetApiVersion}
-                        options={apiVersionOptions}
-                        onchange={handleConfigChange}>
-                    </lightning-combobox>
-
-                    <lightning-checkbox-group
-                        name="types"
-                        label="Component Types"
-                        options={typeOptions}
-                        value={scanConfig.types}
-                        onchange={handleTypesChange}
-                        class="slds-m-top_medium">
-                    </lightning-checkbox-group>
-
-                    <lightning-combobox
-                        name="namespacePolicy"
-                        label="Namespace Scope"
-                        value={scanConfig.namespacePolicy}
-                        options={namespaceOptions}
-                        onchange={handleConfigChange}
-                        class="slds-m-top_medium">
-                    </lightning-combobox>
-
-                    <lightning-input
-                        type="number"
-                        name="minApiVersion"
-                        label="Minimum API Version (optional)"
-                        value={scanConfig.minApiVersion}
-                        onchange={handleConfigChange}
-                        class="slds-m-top_medium">
-                    </lightning-input>
-
-                    <lightning-input
-                        type="number"
-                        name="maxApiVersion"
-                        label="Maximum API Version (optional)"
-                        value={scanConfig.maxApiVersion}
-                        onchange={handleConfigChange}
-                        class="slds-m-top_medium">
-                    </lightning-input>
-
-                    <div class="slds-m-top_large">
-                        <lightning-button 
-                            variant="brand" 
-                            label="Start Scan"
-                            icon-name="utility:search"
-                            onclick={handleStartScan}
-                            disabled={isScanRunning}>
-                        </lightning-button>
-                    </div>
-                </div>
-            </lightning-card>
-        </div>
-
         <!-- Recent Scans -->
-        <div class="slds-col slds-size_1-of-2">
-            <lightning-card title="Recent Scans">
+        <div class="slds-col slds-size_1-of-1">
+            <lightning-card title="Scan History" icon-name="utility:clock">
                 <div class="slds-p-around_medium">
-                    <template if:true={hasRecentScans}>
+                    <template lwc:if={hasRecentScans}>
                         <lightning-datatable
                             key-field="scanId"
                             data={recentScansData}
@@ -123,7 +89,7 @@
                         </lightning-datatable>
                     </template>
 
-                    <template if:false={hasRecentScans}>
+                    <template lwc:else>
                         <div class="slds-text-align_center slds-text-color_weak slds-p-around_large">
                             <lightning-icon icon-name="utility:info" size="large" class="slds-m-bottom_small"></lightning-icon>
                             <p>No scans have been run yet.</p>

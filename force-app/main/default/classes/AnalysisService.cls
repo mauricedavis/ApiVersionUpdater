@@ -111,16 +111,21 @@ public with sharing class AnalysisService {
     }
     
     private static List<Rule__mdt> getActiveRules(Decimal targetVersion) {
-        return [
-            SELECT Id, RuleId__c, Severity__c, Category__c, AppliesToType__c,
-                   PatternType__c, Pattern__c, Description__c, SuggestedAction__c,
-                   Blocking__c, VersionDeltaMin__c, VersionDeltaMax__c,
-                   Pack__r.DeveloperName, Pack__r.Enabled__c
-            FROM Rule__mdt
-            WHERE Pack__r.Enabled__c = true
-            AND (Pack__r.MaxApiVersion__c = null OR Pack__r.MaxApiVersion__c >= :targetVersion)
-            AND (Pack__r.MinApiVersion__c = null OR Pack__r.MinApiVersion__c <= :targetVersion)
-        ];
+        try {
+            return [
+                SELECT Id, RuleId__c, Severity__c, Category__c, AppliesToType__c,
+                       PatternType__c, Pattern__c, Description__c, SuggestedAction__c,
+                       Blocking__c, VersionDeltaMin__c, VersionDeltaMax__c,
+                       Pack__r.DeveloperName, Pack__r.Enabled__c
+                FROM Rule__mdt
+                WHERE Pack__r.Enabled__c = true
+                AND (Pack__r.MaxApiVersion__c = null OR Pack__r.MaxApiVersion__c >= :targetVersion)
+                AND (Pack__r.MinApiVersion__c = null OR Pack__r.MinApiVersion__c <= :targetVersion)
+            ];
+        } catch (Exception e) {
+            System.debug('No rules found or error querying rules: ' + e.getMessage());
+            return new List<Rule__mdt>();
+        }
     }
     
     private static List<Finding__c> analyzeSnapshot(ArtifactSnapshot__c snapshot, 

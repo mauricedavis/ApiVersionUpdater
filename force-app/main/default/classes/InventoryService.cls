@@ -417,6 +417,152 @@ public with sharing class InventoryService {
         return allDistributions;
     }
     
+    public class NonCompliantComponentsDto {
+        @AuraEnabled public Integer totalCount;
+        @AuraEnabled public Decimal targetApiVersion;
+        @AuraEnabled public Map<String, List<ArtifactDto>> byType;
+        @AuraEnabled public Map<String, Integer> countByType;
+    }
+    
+    @AuraEnabled
+    public static NonCompliantComponentsDto getNonCompliantComponents(Decimal targetApiVersion, String scopePolicy) {
+        NonCompliantComponentsDto result = new NonCompliantComponentsDto();
+        result.targetApiVersion = targetApiVersion;
+        result.byType = new Map<String, List<ArtifactDto>>();
+        result.countByType = new Map<String, Integer>();
+        result.totalCount = 0;
+        
+        String namespaceCondition = '';
+        if (scopePolicy == 'CustomOnly') {
+            namespaceCondition = ' AND NamespacePrefix = null';
+        } else if (scopePolicy == 'PackageOnly') {
+            namespaceCondition = ' AND NamespacePrefix != null';
+        }
+        
+        result.byType.put('ApexClass', queryNonCompliantApexClasses(targetApiVersion, namespaceCondition));
+        result.byType.put('ApexTrigger', queryNonCompliantApexTriggers(targetApiVersion, namespaceCondition));
+        result.byType.put('ApexPage', queryNonCompliantApexPages(targetApiVersion, namespaceCondition));
+        result.byType.put('ApexComponent', queryNonCompliantApexComponents(targetApiVersion, namespaceCondition));
+        
+        for (String artifactType : result.byType.keySet()) {
+            Integer count = result.byType.get(artifactType).size();
+            result.countByType.put(artifactType, count);
+            result.totalCount += count;
+        }
+        
+        return result;
+    }
+    
+    private static List<ArtifactDto> queryNonCompliantApexClasses(Decimal targetVersion, String namespaceCondition) {
+        List<ArtifactDto> artifacts = new List<ArtifactDto>();
+        
+        String query = 'SELECT Id, Name, NamespacePrefix, ApiVersion, Status, ' +
+                       'LastModifiedDate, LastModifiedById, LastModifiedBy.Name, LengthWithoutComments ' +
+                       'FROM ApexClass WHERE ApiVersion < :targetVersion' + namespaceCondition +
+                       ' ORDER BY ApiVersion ASC, Name ASC LIMIT 2000';
+        
+        for (ApexClass cls : Database.query(query)) {
+            ArtifactDto dto = new ArtifactDto();
+            dto.id = cls.Id;
+            dto.artifactType = 'ApexClass';
+            dto.fullName = cls.NamespacePrefix != null ? cls.NamespacePrefix + '.' + cls.Name : cls.Name;
+            dto.developerName = cls.Name;
+            dto.namespacePrefix = cls.NamespacePrefix;
+            dto.apiVersion = cls.ApiVersion;
+            dto.status = cls.Status;
+            dto.lastModifiedDate = cls.LastModifiedDate;
+            dto.lastModifiedById = cls.LastModifiedById;
+            dto.lastModifiedByName = cls.LastModifiedBy?.Name;
+            dto.bodyLength = cls.LengthWithoutComments;
+            dto.isManaged = String.isNotBlank(cls.NamespacePrefix);
+            artifacts.add(dto);
+        }
+        
+        return artifacts;
+    }
+    
+    private static List<ArtifactDto> queryNonCompliantApexTriggers(Decimal targetVersion, String namespaceCondition) {
+        List<ArtifactDto> artifacts = new List<ArtifactDto>();
+        
+        String query = 'SELECT Id, Name, NamespacePrefix, ApiVersion, Status, ' +
+                       'LastModifiedDate, LastModifiedById, LastModifiedBy.Name, LengthWithoutComments ' +
+                       'FROM ApexTrigger WHERE ApiVersion < :targetVersion' + namespaceCondition +
+                       ' ORDER BY ApiVersion ASC, Name ASC LIMIT 500';
+        
+        for (ApexTrigger trg : Database.query(query)) {
+            ArtifactDto dto = new ArtifactDto();
+            dto.id = trg.Id;
+            dto.artifactType = 'ApexTrigger';
+            dto.fullName = trg.NamespacePrefix != null ? trg.NamespacePrefix + '.' + trg.Name : trg.Name;
+            dto.developerName = trg.Name;
+            dto.namespacePrefix = trg.NamespacePrefix;
+            dto.apiVersion = trg.ApiVersion;
+            dto.status = trg.Status;
+            dto.lastModifiedDate = trg.LastModifiedDate;
+            dto.lastModifiedById = trg.LastModifiedById;
+            dto.lastModifiedByName = trg.LastModifiedBy?.Name;
+            dto.bodyLength = trg.LengthWithoutComments;
+            dto.isManaged = String.isNotBlank(trg.NamespacePrefix);
+            artifacts.add(dto);
+        }
+        
+        return artifacts;
+    }
+    
+    private static List<ArtifactDto> queryNonCompliantApexPages(Decimal targetVersion, String namespaceCondition) {
+        List<ArtifactDto> artifacts = new List<ArtifactDto>();
+        
+        String query = 'SELECT Id, Name, NamespacePrefix, ApiVersion, ' +
+                       'LastModifiedDate, LastModifiedById, LastModifiedBy.Name ' +
+                       'FROM ApexPage WHERE ApiVersion < :targetVersion' + namespaceCondition +
+                       ' ORDER BY ApiVersion ASC, Name ASC LIMIT 500';
+        
+        for (ApexPage pg : Database.query(query)) {
+            ArtifactDto dto = new ArtifactDto();
+            dto.id = pg.Id;
+            dto.artifactType = 'ApexPage';
+            dto.fullName = pg.NamespacePrefix != null ? pg.NamespacePrefix + '.' + pg.Name : pg.Name;
+            dto.developerName = pg.Name;
+            dto.namespacePrefix = pg.NamespacePrefix;
+            dto.apiVersion = pg.ApiVersion;
+            dto.status = 'Active';
+            dto.lastModifiedDate = pg.LastModifiedDate;
+            dto.lastModifiedById = pg.LastModifiedById;
+            dto.lastModifiedByName = pg.LastModifiedBy?.Name;
+            dto.isManaged = String.isNotBlank(pg.NamespacePrefix);
+            artifacts.add(dto);
+        }
+        
+        return artifacts;
+    }
+    
+    private static List<ArtifactDto> queryNonCompliantApexComponents(Decimal targetVersion, String namespaceCondition) {
+        List<ArtifactDto> artifacts = new List<ArtifactDto>();
+        
+        String query = 'SELECT Id, Name, NamespacePrefix, ApiVersion, ' +
+                       'LastModifiedDate, LastModifiedById, LastModifiedBy.Name ' +
+                       'FROM ApexComponent WHERE ApiVersion < :targetVersion' + namespaceCondition +
+                       ' ORDER BY ApiVersion ASC, Name ASC LIMIT 500';
+        
+        for (ApexComponent cmp : Database.query(query)) {
+            ArtifactDto dto = new ArtifactDto();
+            dto.id = cmp.Id;
+            dto.artifactType = 'ApexComponent';
+            dto.fullName = cmp.NamespacePrefix != null ? cmp.NamespacePrefix + '.' + cmp.Name : cmp.Name;
+            dto.developerName = cmp.Name;
+            dto.namespacePrefix = cmp.NamespacePrefix;
+            dto.apiVersion = cmp.ApiVersion;
+            dto.status = 'Active';
+            dto.lastModifiedDate = cmp.LastModifiedDate;
+            dto.lastModifiedById = cmp.LastModifiedById;
+            dto.lastModifiedByName = cmp.LastModifiedBy?.Name;
+            dto.isManaged = String.isNotBlank(cmp.NamespacePrefix);
+            artifacts.add(dto);
+        }
+        
+        return artifacts;
+    }
+    
     @AuraEnabled
     public static ArtifactDto getArtifactDetails(String artifactId, String artifactType) {
         switch on artifactType {

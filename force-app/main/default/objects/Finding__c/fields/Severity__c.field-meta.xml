@@ -27,6 +27,11 @@
                 <label>Medium</label>
             </value>
             <value>
+                <fullName>Warning</fullName>
+                <default>false</default>
+                <label>Warning</label>
+            </value>
+            <value>
                 <fullName>High</fullName>
                 <default>false</default>
                 <label>High</label>

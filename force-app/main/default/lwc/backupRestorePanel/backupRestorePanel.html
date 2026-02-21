@@ -1,37 +1,32 @@
 <template>
     <lightning-card title="Backup & Restore" icon-name="utility:backup">
-        <div slot="actions">
-            <template lwc:if={hasBackupData}>
-                <lightning-button 
-                    label="Restore All" 
-                    variant="brand" 
-                    onclick={handleRestoreAllClick}
-                    disabled={isLoading}
-                    class="slds-m-right_x-small">
-                </lightning-button>
-                <lightning-button 
-                    label="Cleanup Backup" 
-                    variant="destructive-text" 
-                    onclick={handleCleanupClick}
-                    disabled={isLoading}>
-                </lightning-button>
-            </template>
-            <template lwc:else>
-                <lightning-button 
-                    label="Create Backup" 
-                    variant="brand" 
-                    onclick={handleCreateBackup}
-                    disabled={isLoading}>
-                </lightning-button>
-            </template>
-        </div>
-        
         <div class="slds-p-around_medium">
             <template lwc:if={isLoading}>
                 <lightning-spinner alternative-text="Loading" size="medium"></lightning-spinner>
             </template>
             
-            <template lwc:if={hasBackupData}>
+            <lightning-tabset active-tab-value={activeSubTab} onactive={handleSubTabChange}>
+                <!-- Backup Items Tab -->
+                <lightning-tab label="Backup Items" value="backup" icon-name="utility:undo">
+                    <div slot="actions">
+                        <template lwc:if={hasBackupData}>
+                            <lightning-button 
+                                label="Restore All" 
+                                variant="brand" 
+                                onclick={handleRestoreAllClick}
+                                disabled={isLoading}
+                                class="slds-m-right_x-small">
+                            </lightning-button>
+                            <lightning-button 
+                                label="Cleanup Backup" 
+                                variant="destructive-text" 
+                                onclick={handleCleanupClick}
+                                disabled={isLoading}>
+                            </lightning-button>
+                        </template>
+                    </div>
+                    
+                    <template lwc:if={hasBackupData}>
                 <!-- Backup Summary -->
                 <div class="slds-grid slds-wrap slds-gutters slds-m-bottom_medium">
                     <div class="slds-col slds-size_1-of-4">
@@ -96,11 +91,40 @@
                     <div class="slds-text-longform">
                         <h3 class="slds-text-heading_medium">No Backup Available</h3>
                         <p class="slds-text-body_regular">
-                            Click "Create Backup" to backup components before deployment.
+                            Backups are created automatically when you deploy with the backup option enabled.
                         </p>
                     </div>
                 </div>
             </template>
+                </lightning-tab>
+                
+                <!-- Deployment History Tab -->
+                <lightning-tab label="Deployment History" value="history" icon-name="utility:clock">
+                    <template lwc:if={hasDeploymentHistory}>
+                        <div class="slds-m-bottom_medium">
+                            <p class="slds-text-body_small slds-text-color_weak">
+                                Showing recent deployments for this session
+                            </p>
+                        </div>
+                        <lightning-datatable
+                            key-field="id"
+                            data={deploymentHistoryItems}
+                            columns={deploymentHistoryColumns}
+                            hide-checkbox-column>
+                        </lightning-datatable>
+                    </template>
+                    <template lwc:else>
+                        <div class="slds-illustration slds-illustration_small slds-text-align_center">
+                            <div class="slds-text-longform">
+                                <h3 class="slds-text-heading_medium">No Deployment History</h3>
+                                <p class="slds-text-body_regular">
+                                    Deployment history will appear here after components are deployed.
+                                </p>
+                            </div>
+                        </div>
+                    </template>
+                </lightning-tab>
+            </lightning-tabset>
         </div>
     </lightning-card>
     

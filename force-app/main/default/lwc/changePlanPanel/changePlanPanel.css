@@ -98,3 +98,110 @@
     font-size: 0.875rem;
     color: #706e6b;
 }
+
+/* Validated stat box */
+.stat-validated {
+    border-left: 4px solid #0176d3;
+    background: linear-gradient(135deg, #f0f7ff 0%, #e8f4ff 100%);
+}
+
+/* Validation Flow Steps */
+.action-step {
+    display: flex;
+    align-items: flex-start;
+    padding: 1rem;
+    background: #f8f8f8;
+    border-radius: 0.5rem;
+    min-width: 250px;
+}
+
+.step-number {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: #0176d3;
+    color: white;
+    border-radius: 50%;
+    font-weight: 700;
+    margin-right: 1rem;
+    flex-shrink: 0;
+}
+
+.step-content {
+    flex: 1;
+}
+
+.step-arrow {
+    display: flex;
+    align-items: center;
+    padding: 0 1rem;
+    color: #706e6b;
+}
+
+/* Selection Badge */
+.selection-badge {
+    background-color: #0176d3;
+    color: white;
+    font-weight: 600;
+}
+
+/* Status Badge - Validated */
+.status-validated {
+    background-color: #0176d3;
+    color: white;
+}
+
+/* Backup Icon */
+.backup-icon {
+    color: #0176d3;
+}
+
+/* Modal Styling */
+.slds-modal__container {
+    max-width: 600px;
+}
+
+/* Failed stat box */
+.stat-failed-box {
+    border-left: 4px solid #c23934;
+    background: linear-gradient(135deg, #fff0f0 0%, #ffe8e8 100%);
+}
+
+.stat-failed-value {
+    color: #c23934;
+}
+
+.clickable {
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.clickable:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Error details box */
+.error-details-box {
+    background: #fff0f0;
+    border: 1px solid #c23934;
+    border-left: 4px solid #c23934;
+    border-radius: 0.5rem;
+    padding: 1rem;
+}
+
+.error-message-text {
+    font-family: 'Consolas', 'Monaco', monospace;
+    font-size: 0.85rem;
+    color: #333;
+    background: #ffffff;
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.25rem;
+    border: 1px solid #e0e0e0;
+    max-height: 150px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+}

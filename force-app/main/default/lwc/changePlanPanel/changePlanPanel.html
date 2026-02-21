@@ -7,64 +7,157 @@
                     <span class={planStatusClass}>{changePlan.status}</span>
                 </div>
                 <div class="slds-p-around_medium">
-                    <div class="slds-grid slds-gutters">
-                        <div class="slds-col slds-size_1-of-5">
+                    <div class="slds-grid slds-gutters slds-wrap">
+                        <div class="slds-col slds-size_1-of-6">
                             <div class="slds-box stat-box">
                                 <div class="stat-value">{changePlan.totalItems}</div>
                                 <div class="stat-label">Total Items</div>
                             </div>
                         </div>
-                        <div class="slds-col slds-size_1-of-5">
+                        <div class="slds-col slds-size_1-of-6">
                             <div class="slds-box stat-box stat-eligible">
                                 <div class="stat-value">{changePlan.eligibleItems}</div>
                                 <div class="stat-label">Eligible</div>
                             </div>
                         </div>
-                        <div class="slds-col slds-size_1-of-5">
+                        <div class="slds-col slds-size_1-of-6">
                             <div class="slds-box stat-box stat-blocked">
                                 <div class="stat-value">{changePlan.blockedItems}</div>
                                 <div class="stat-label">Blocked</div>
                             </div>
                         </div>
-                        <div class="slds-col slds-size_1-of-5">
+                        <div class="slds-col slds-size_1-of-6">
                             <div class="slds-box stat-box">
                                 <div class="stat-value">{changePlan.targetApiVersion}</div>
                                 <div class="stat-label">Target Version</div>
                             </div>
                         </div>
-                        <div class="slds-col slds-size_1-of-5">
-                            <div class="slds-box stat-box">
-                                <div class="stat-value">{changePlan.incrementPolicy}</div>
-                                <div class="stat-label">Policy</div>
+                        <div class="slds-col slds-size_1-of-6">
+                            <div class="slds-box stat-box stat-validated">
+                                <div class="stat-value">{validatedCount}</div>
+                                <div class="stat-label">Validated</div>
                             </div>
                         </div>
+                        <template lwc:if={hasFailedItemsCount}>
+                            <div class="slds-col slds-size_1-of-6">
+                                <div class="slds-box stat-box stat-failed-box clickable" onclick={handleShowFailed}>
+                                    <div class="stat-value stat-failed-value">{failedItemsCount}</div>
+                                    <div class="stat-label">Failed</div>
+                                </div>
+                            </div>
+                        </template>
                     </div>
 
-                    <template if:true={canExecute}>
-                        <div class="slds-m-top_large slds-text-align_center">
-                            <lightning-button-group>
-                                <lightning-button 
-                                    variant="brand" 
-                                    label="Validate Only"
-                                    icon-name="utility:check"
-                                    onclick={handleValidate}>
-                                </lightning-button>
-                                <lightning-button 
-                                    variant="success" 
-                                    label="Deploy Changes"
-                                    icon-name="utility:upload"
-                                    onclick={handleDeploy}>
-                                </lightning-button>
-                            </lightning-button-group>
-                        </div>
-                    </template>
+                    <!-- Validation Flow Actions -->
+                    <div class="slds-m-top_large">
+                        <div class="slds-grid slds-grid_align-center slds-gutters">
+                            <!-- Step 1: Validate -->
+                            <div class="slds-col">
+                                <div class="action-step">
+                                    <div class="step-number">1</div>
+                                    <div class="step-content">
+                                        <h3 class="slds-text-heading_small">Validate</h3>
+                                        <p class="slds-text-body_small slds-text-color_weak">
+                                            Check selected components compile successfully
+                                        </p>
+                                        <lightning-button 
+                                            variant="brand" 
+                                            label={validateButtonLabel}
+                                            icon-name="utility:check"
+                                            onclick={handleValidate}
+                                            disabled={cannotValidate}
+                                            class="slds-m-top_small">
+                                        </lightning-button>
+                                    </div>
+                                </div>
+                            </div>
 
-                    <template if:true={isExecuting}>
-                        <div class="slds-m-top_large slds-text-align_center">
-                            <lightning-spinner alternative-text="Executing" size="medium"></lightning-spinner>
-                            <p class="slds-m-top_small slds-text-color_weak">Deployment in progress...</p>
+                            <!-- Arrow -->
+                            <div class="slds-col slds-grow-none step-arrow">
+                                <lightning-icon icon-name="utility:forward" size="small"></lightning-icon>
+                            </div>
+
+                            <!-- Step 2: Deploy -->
+                            <div class="slds-col">
+                                <div class="action-step">
+                                    <div class="step-number">2</div>
+                                    <div class="step-content">
+                                        <h3 class="slds-text-heading_small">Deploy</h3>
+                                        <p class="slds-text-body_small slds-text-color_weak">
+                                            Apply API version changes to your org
+                                        </p>
+                                        <lightning-button 
+                                            variant="success" 
+                                            label={deployButtonLabel}
+                                            icon-name="utility:upload"
+                                            onclick={handleDeployClick}
+                                            disabled={cannotDeploy}
+                                            title={deployButtonTitle}
+                                            class="slds-m-top_small">
+                                        </lightning-button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                    </template>
+
+                        <!-- Deployment Error Message -->
+                        <template lwc:if={hasDeploymentFailed}>
+                            <div class="slds-box slds-box_xx-small error-details-box slds-m-top_medium">
+                                <div class="slds-grid slds-grid_vertical-align-start">
+                                    <div class="slds-col slds-grow-none slds-m-right_small">
+                                        <lightning-icon icon-name="utility:error" size="medium" variant="error"></lightning-icon>
+                                    </div>
+                                    <div class="slds-col">
+                                        <h3 class="slds-text-heading_small slds-text-color_error">Deployment Failed</h3>
+                                        <p class="slds-m-top_x-small error-message-text">{deploymentErrorMessage}</p>
+                                        <div class="slds-m-top_small">
+                                            <template lwc:if={hasFailedItemsCount}>
+                                                <lightning-button 
+                                                    variant="base"
+                                                    label="View Failed Items"
+                                                    icon-name="utility:filter"
+                                                    onclick={handleShowFailed}
+                                                    class="slds-m-right_small">
+                                                </lightning-button>
+                                            </template>
+                                            <template lwc:if={canResetPlan}>
+                                                <lightning-button 
+                                                    variant="brand"
+                                                    label="Reset Plan & Try Again"
+                                                    icon-name="utility:refresh"
+                                                    onclick={handleResetPlan}>
+                                                </lightning-button>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+
+                        <!-- Validation Status Message -->
+                        <template lwc:if={validationComplete}>
+                            <div class="slds-notify slds-notify_alert slds-alert_success slds-m-top_medium" role="alert">
+                                <lightning-icon icon-name="utility:success" size="small" variant="inverse" class="slds-m-right_x-small"></lightning-icon>
+                                <span>
+                                    Validation complete! <strong>{validatedCount} components</strong> passed validation and are ready to deploy.
+                                </span>
+                            </div>
+                        </template>
+
+                        <template lwc:if={isValidating}>
+                            <div class="slds-m-top_medium slds-text-align_center">
+                                <lightning-spinner alternative-text="Validating" size="small"></lightning-spinner>
+                                <p class="slds-m-top_small slds-text-color_weak">Validating selected components...</p>
+                            </div>
+                        </template>
+
+                        <template lwc:if={isDeploying}>
+                            <div class="slds-m-top_medium slds-text-align_center">
+                                <lightning-spinner alternative-text="Deploying" size="small"></lightning-spinner>
+                                <p class="slds-m-top_small slds-text-color_weak">Deploying changes to org...</p>
+                            </div>
+                        </template>
+                    </div>
                 </div>
             </lightning-card>
         </div>
@@ -73,27 +166,51 @@
         <div class="slds-col slds-size_1-of-1">
             <lightning-card title="Change Items">
                 <div slot="actions">
-                    <lightning-combobox
-                        name="eligibilityFilter"
-                        value={eligibilityFilter}
-                        options={eligibilityOptions}
-                        onchange={handleFilterChange}
-                        variant="label-hidden">
-                    </lightning-combobox>
+                    <div class="slds-grid slds-gutters slds-grid_vertical-align-center">
+                        <div class="slds-col">
+                            <lightning-button-group>
+                                <lightning-button 
+                                    label="Select All Eligible"
+                                    onclick={handleSelectAll}
+                                    icon-name="utility:multi_select_checkbox">
+                                </lightning-button>
+                                <lightning-button 
+                                    label="Clear Selection"
+                                    onclick={handleSelectNone}
+                                    icon-name="utility:clear">
+                                </lightning-button>
+                            </lightning-button-group>
+                        </div>
+                        <div class="slds-col">
+                            <lightning-badge label={selectionBadgeLabel} class="selection-badge"></lightning-badge>
+                        </div>
+                        <div class="slds-col">
+                            <lightning-combobox
+                                name="eligibilityFilter"
+                                value={eligibilityFilter}
+                                options={eligibilityOptions}
+                                onchange={handleFilterChange}
+                                variant="label-hidden">
+                            </lightning-combobox>
+                        </div>
+                    </div>
                 </div>
-                <template if:true={hasChangeItems}>
+
+                <template lwc:if={hasChangeItems}>
                     <lightning-datatable
                         key-field="id"
                         data={filteredChangeItems}
                         columns={columns}
-                        hide-checkbox-column
+                        selected-rows={preSelectedRows}
+                        onrowselection={handleRowSelection}
                         sorted-by={sortedBy}
                         sorted-direction={sortedDirection}
-                        onsort={handleSort}>
+                        onsort={handleSort}
+                        max-row-selection={eligibleCount}>
                     </lightning-datatable>
                 </template>
 
-                <template if:false={hasChangeItems}>
+                <template lwc:else>
                     <div class="slds-p-around_large slds-text-align_center slds-text-color_weak">
                         No change items in this plan
                     </div>
@@ -102,7 +219,7 @@
         </div>
 
         <!-- Execution Results -->
-        <template if:true={hasExecutionResults}>
+        <template lwc:if={hasExecutionResults}>
             <div class="slds-col slds-size_1-of-1 slds-m-top_medium">
                 <lightning-card title="Execution Results">
                     <div class="slds-p-around_medium">
@@ -134,4 +251,82 @@
             </div>
         </template>
     </div>
+
+    <!-- Deploy Confirmation Modal -->
+    <template lwc:if={showDeployConfirmation}>
+        <section role="dialog" tabindex="-1" class="slds-modal slds-fade-in-open">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header">
+                    <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse" onclick={handleCancelDeploy}>
+                        <lightning-icon icon-name="utility:close" alternative-text="Close" size="small"></lightning-icon>
+                    </button>
+                    <h2 class="slds-modal__title slds-hyphenate">Confirm Deployment</h2>
+                </header>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <div class="slds-m-bottom_medium">
+                        <p class="slds-text-body_regular">
+                            You are about to deploy <strong>{validatedCount} components</strong> with updated API versions.
+                        </p>
+                    </div>
+
+                    <!-- Backup Option -->
+                    <div class="slds-box slds-theme_shade slds-m-bottom_medium">
+                        <div class="slds-grid slds-gutters slds-grid_vertical-align-center">
+                            <div class="slds-col slds-grow-none">
+                                <lightning-icon icon-name="utility:backup" size="medium" class="backup-icon"></lightning-icon>
+                            </div>
+                            <div class="slds-col">
+                                <h3 class="slds-text-heading_small">Backup & Restore</h3>
+                                <p class="slds-text-body_small slds-text-color_weak">
+                                    Create a backup of each component before upgrading, allowing you to restore original versions if needed.
+                                </p>
+                            </div>
+                            <div class="slds-col slds-grow-none">
+                                <lightning-input 
+                                    type="toggle"
+                                    label="Create Backup"
+                                    checked={createBackupBeforeDeploy}
+                                    onchange={handleBackupToggle}
+                                    message-toggle-active="Enabled"
+                                    message-toggle-inactive="Disabled">
+                                </lightning-input>
+                            </div>
+                        </div>
+                    </div>
+
+                    <template lwc:if={createBackupBeforeDeploy}>
+                        <div class="slds-notify slds-notify_alert slds-alert_info" role="alert">
+                            <lightning-icon icon-name="utility:info" size="x-small" class="slds-m-right_x-small"></lightning-icon>
+                            <span class="slds-text-body_small">
+                                Backups will be stored for 90 days. You can restore components from the <strong>Backup & Restore</strong> tab after deployment.
+                            </span>
+                        </div>
+                    </template>
+
+                    <template lwc:else>
+                        <div class="slds-notify slds-notify_alert slds-alert_warning" role="alert">
+                            <lightning-icon icon-name="utility:warning" size="x-small" class="slds-m-right_x-small"></lightning-icon>
+                            <span class="slds-text-body_small">
+                                <strong>Warning:</strong> Without backup, you cannot automatically restore components to their original API versions.
+                            </span>
+                        </div>
+                    </template>
+                </div>
+                <footer class="slds-modal__footer">
+                    <lightning-button 
+                        variant="neutral" 
+                        label="Cancel" 
+                        onclick={handleCancelDeploy}>
+                    </lightning-button>
+                    <lightning-button 
+                        variant="brand" 
+                        label="Deploy Now" 
+                        onclick={handleConfirmDeploy}
+                        class="slds-m-left_x-small">
+                    </lightning-button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
 </template>

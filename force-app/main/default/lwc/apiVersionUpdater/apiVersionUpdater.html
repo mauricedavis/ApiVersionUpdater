@@ -29,6 +29,33 @@
             </template>
 
             <div class="slds-p-around_medium">
+                <!-- Progress Stepper -->
+                <c-progress-stepper 
+                    current-step={workflowStep}
+                    completed-steps={completedSteps}
+                    onstepclick={handleStepClick}>
+                </c-progress-stepper>
+
+                <!-- Status Summary Card -->
+                <c-status-summary-card
+                    session={session}
+                    scan-name={currentScanName}
+                    scan-status={currentScanStatus}
+                    scan-started-at={currentScanStartedAt}
+                    findings-count={findingsCount}
+                    alerts-count={alertsCount}
+                    components-needing-upgrade={componentsNeedingUpgrade}
+                    plan-name={currentPlanName}
+                    plan-status={currentPlanStatus}
+                    plan-item-count={changeItemsCount}
+                    deployment-status={currentDeploymentStatus}
+                    target-api-version={settings.targetApiVersion}
+                    onclearsession={handleClearSession}
+                    onviewscan={handleScanSelect}
+                    onviewplan={handlePlanSelect}
+                    onviewdeployment={handleViewDeployment}>
+                </c-status-summary-card>
+
                 <!-- Navigation Tabs -->
                 <lightning-tabset active-tab-value={activeTab} onselect={handleTabSelect}>
                     <lightning-tab label="Dashboard" value="dashboard" icon-name="utility:chart">
@@ -46,47 +73,151 @@
                         </div>
                     </lightning-tab>
 
-                    <lightning-tab label="Scan" value="scan" icon-name="utility:search">
-                        <div class="slds-p-around_small">
-                            <c-scan-panel
-                                settings={settings}
-                                recent-scans={recentScans}
-                                current-scan={currentScan}
-                                onstartscan={handleStartScan}
-                                onviewscan={handleViewScan}
-                                oncancelscan={handleCancelScan}>
-                            </c-scan-panel>
-                        </div>
-                    </lightning-tab>
+                    <lightning-tab label="Scans & Findings" value="scanfindings" icon-name="utility:search">
+                        <lightning-tabset variant="scoped" active-tab-value={activeScanSubTab}>
+                            <!-- Current Scan Sub-Tab -->
+                            <lightning-tab label="Current Scan" value="current">
+                                <div class="slds-p-around_small">
+                                    <!-- Scan Status Section -->
+                                    <template lwc:if={hasScan}>
+                                        <div class="slds-m-bottom_medium">
+                                            <lightning-card title="Scan Status" icon-name="utility:search">
+                                                <div class="slds-p-around_medium">
+                                                    <div class="slds-grid slds-gutters">
+                                                        <div class="slds-col slds-size_1-of-5">
+                                                            <div class="slds-text-title_caps slds-m-bottom_xx-small">Status</div>
+                                                            <lightning-badge label={currentScanStatus} class={scanStatusBadgeClass}></lightning-badge>
+                                                        </div>
+                                                        <div class="slds-col slds-size_1-of-5">
+                                                            <div class="slds-text-title_caps slds-m-bottom_xx-small">Started</div>
+                                                            <template lwc:if={currentScanStartedAt}>
+                                                                <lightning-formatted-date-time 
+                                                                    value={currentScanStartedAt}
+                                                                    year="numeric" month="short" day="2-digit"
+                                                                    hour="2-digit" minute="2-digit">
+                                                                </lightning-formatted-date-time>
+                                                            </template>
+                                                            <template lwc:else>-</template>
+                                                        </div>
+                                                        <div class="slds-col slds-size_1-of-5">
+                                                            <div class="slds-text-title_caps slds-m-bottom_xx-small">Findings</div>
+                                                            <span>{findingsCount}</span>
+                                                        </div>
+                                                        <div class="slds-col slds-size_1-of-5">
+                                                            <div class="slds-text-title_caps slds-m-bottom_xx-small">Alerts</div>
+                                                            <span class="slds-text-color_error">{alertsCount}</span>
+                                                        </div>
+                                                        <div class="slds-col slds-size_1-of-5">
+                                                            <div class="slds-text-title_caps slds-m-bottom_xx-small">Target API</div>
+                                                            <span>v{settings.targetApiVersion}</span>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <template lwc:if={isScanRunning}>
+                                                        <div class="slds-m-top_medium">
+                                                            <lightning-progress-bar value="50" size="small"></lightning-progress-bar>
+                                                            <div class="slds-text-align_center slds-m-top_x-small slds-text-color_weak">
+                                                                Processing...
+                                                            </div>
+                                                        </div>
+                                                        <div class="slds-m-top_medium slds-text-align_center">
+                                                            <lightning-button 
+                                                                variant="destructive" 
+                                                                label="Cancel Scan" 
+                                                                onclick={handleCancelScan}>
+                                                            </lightning-button>
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                            </lightning-card>
+                                        </div>
+                                    </template>
 
-                    <lightning-tab label="Findings" value="findings" icon-name="utility:warning" 
-                        disabled={noFindings}>
-                        <div class="slds-p-around_small">
-                            <c-findings-panel
-                                scan-id={selectedScanId}
-                                findings={findings}
-                                findings-summary={findingsSummary}
-                                oncreateplan={handleCreatePlan}>
-                            </c-findings-panel>
-                        </div>
+                                    <!-- Findings Section -->
+                                    <template lwc:if={hasScanResults}>
+                                        <c-findings-panel
+                                            scan-id={selectedScanId}
+                                            findings={findings}
+                                            findings-summary={findingsSummary}
+                                            target-version={settings.targetApiVersion}
+                                            scope-policy={settings.scopePolicy}
+                                            oncreateplan={handleCreatePlan}
+                                            onshowerror={handleShowError}>
+                                        </c-findings-panel>
+                                    </template>
+
+                                    <!-- Empty State -->
+                                    <template lwc:if={showScanEmptyState}>
+                                        <lightning-card title="Current Scan" icon-name="utility:search">
+                                            <div class="slds-p-around_large slds-text-align_center">
+                                                <lightning-icon icon-name="utility:info" size="large" class="slds-m-bottom_small"></lightning-icon>
+                                                <h3 class="slds-text-heading_medium">No Active Scan</h3>
+                                                <p class="slds-text-body_regular slds-text-color_weak slds-m-top_small">
+                                                    Start a compliance scan from the Dashboard to analyze your components.
+                                                </p>
+                                            </div>
+                                        </lightning-card>
+                                    </template>
+                                </div>
+                            </lightning-tab>
+
+                            <!-- Scan History Sub-Tab -->
+                            <lightning-tab label="Scan History" value="history">
+                                <div class="slds-p-around_small">
+                                    <lightning-card title="Scan History" icon-name="utility:clock">
+                                        <div class="slds-p-around_medium">
+                                            <template lwc:if={hasRecentScans}>
+                                                <lightning-datatable
+                                                    key-field="scanId"
+                                                    data={recentScansData}
+                                                    columns={scanHistoryColumns}
+                                                    hide-checkbox-column
+                                                    onrowaction={handleScanHistoryAction}>
+                                                </lightning-datatable>
+                                            </template>
+                                            <template lwc:else>
+                                                <div class="slds-text-align_center slds-text-color_weak slds-p-around_large">
+                                                    <lightning-icon icon-name="utility:info" size="large" class="slds-m-bottom_small"></lightning-icon>
+                                                    <p>No scans have been run yet.</p>
+                                                    <p class="slds-m-top_small">Start a scan from the Dashboard to get started.</p>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </lightning-card>
+                                </div>
+                            </lightning-tab>
+                        </lightning-tabset>
                     </lightning-tab>
 
                     <lightning-tab label="Change Plan" value="changeplan" icon-name="utility:checkin"
-                        disabled={noChangePlan}>
+                        disabled={planTabDisabled}>
                         <div class="slds-p-around_small">
-                            <c-change-plan-panel
-                                change-plan={changePlan}
-                                change-items={changeItems}
-                                onexecuteplan={handleExecutePlan}>
-                            </c-change-plan-panel>
+                            <template lwc:if={hasChangePlan}>
+                                <c-change-plan-panel
+                                    change-plan={changePlan}
+                                    change-items={changeItems}
+                                    deployment-run-id={currentDeploymentRunId}
+                                    onexecuteplan={handleExecutePlan}
+                                    onplanreset={handlePlanReset}>
+                                </c-change-plan-panel>
+                            </template>
+                            <template lwc:else>
+                                <div class="slds-illustration slds-illustration_small">
+                                    <div class="slds-text-longform">
+                                        <h3 class="slds-text-heading_medium">No Change Plan</h3>
+                                        <p class="slds-text-body_regular">Create a change plan from Scans & Findings after completing a scan.</p>
+                                    </div>
+                                </div>
+                            </template>
                         </div>
                     </lightning-tab>
 
-                    <lightning-tab label="Backup & Restore" value="backup" icon-name="utility:backup"
-                        disabled={noDeploymentRun}>
+                    <lightning-tab label="Backup & Restore" value="backup" icon-name="utility:undo"
+                        disabled={backupTabDisabled}>
                         <div class="slds-p-around_small">
                             <c-backup-restore-panel
                                 deployment-run-id={currentDeploymentRunId}
+                                plan-id={currentPlanId}
                                 has-backup={hasBackup}
                                 onbackupcleanedup={handleBackupCleanedUp}>
                             </c-backup-restore-panel>

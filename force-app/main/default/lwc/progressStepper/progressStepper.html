@@ -1,0 +1,37 @@
+<template>
+    <div class="stepper-container">
+        <div class="progress-label">{progressLabel}</div>
+        
+        <div class="stepper">
+            <template for:each={steps} for:item="step">
+                <div key={step.id} class="step-wrapper">
+                    <div class={step.stepClass} 
+                         data-step-id={step.id}
+                         onclick={handleStepClick}
+                         role="button"
+                         tabindex="0">
+                        <div class={step.iconClass}>
+                            <template lwc:if={step.isCompleted}>
+                                <lightning-icon icon-name="utility:check" size="x-small" 
+                                    alternative-text="Completed"></lightning-icon>
+                            </template>
+                            <template lwc:elseif={step.isCurrent}>
+                                <lightning-icon icon-name={step.icon} size="x-small"
+                                    alternative-text={step.label}></lightning-icon>
+                            </template>
+                            <template lwc:else>
+                                <span class="step-number">{step.id}</span>
+                            </template>
+                        </div>
+                        <div class="step-label">{step.label}</div>
+                        <div class="step-description">{step.description}</div>
+                    </div>
+                    <div class={step.connectorClass}></div>
+                </div>
+            </template>
+        </div>
+
+        <lightning-progress-bar value={progressPercentage} size="small" class="progress-bar">
+        </lightning-progress-bar>
+    </div>
+</template>

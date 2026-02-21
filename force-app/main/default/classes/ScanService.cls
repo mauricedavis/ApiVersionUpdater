@@ -13,12 +13,15 @@ public with sharing class ScanService {
     
     public class ScanStatusDto {
         @AuraEnabled public String scanId;
+        @AuraEnabled public String name;
         @AuraEnabled public String status;
         @AuraEnabled public Datetime startedAt;
         @AuraEnabled public Datetime finishedAt;
         @AuraEnabled public Integer totalArtifacts;
         @AuraEnabled public Integer processedArtifacts;
         @AuraEnabled public Integer findingsCount;
+        @AuraEnabled public Integer alertsCount;
+        @AuraEnabled public String targetApiVersion;
         @AuraEnabled public Map<String, Object> summary;
     }
     
@@ -58,18 +61,31 @@ public with sharing class ScanService {
     
     @AuraEnabled
     public static ScanStatusDto getScanStatus(String scanId) {
-        Scan__c scan = [
-            SELECT Id, Status__c, StartedAt__c, FinishedAt__c, 
+        if (String.isBlank(scanId)) {
+            return null;
+        }
+        
+        List<Scan__c> scans = [
+            SELECT Id, Name, Name__c, Status__c, StartedAt__c, FinishedAt__c, 
                    SummaryJson__c, TargetApiVersion__c, BaselineMode__c
             FROM Scan__c 
             WHERE Id = :scanId
+            LIMIT 1
         ];
+        
+        if (scans.isEmpty()) {
+            return null;
+        }
+        
+        Scan__c scan = scans[0];
         
         ScanStatusDto status = new ScanStatusDto();
         status.scanId = scan.Id;
+        status.name = String.isNotBlank(scan.Name__c) ? scan.Name__c : scan.Name;
         status.status = scan.Status__c;
         status.startedAt = scan.StartedAt__c;
         status.finishedAt = scan.FinishedAt__c;
+        status.targetApiVersion = scan.TargetApiVersion__c;
         
         Integer totalArtifacts = [
             SELECT COUNT() 
@@ -83,6 +99,14 @@ public with sharing class ScanService {
             SELECT COUNT() 
             FROM Finding__c 
             WHERE ArtifactSnapshot__r.Scan__c = :scanId
+        ];
+        
+        // Count distinct artifacts (components) that have at least one finding
+        status.alertsCount = [
+            SELECT COUNT() 
+            FROM ArtifactSnapshot__c 
+            WHERE Scan__c = :scanId
+              AND Id IN (SELECT ArtifactSnapshot__c FROM Finding__c WHERE ArtifactSnapshot__r.Scan__c = :scanId)
         ];
         
         if (String.isNotBlank(scan.SummaryJson__c)) {
@@ -111,18 +135,56 @@ public with sharing class ScanService {
     public static List<ScanStatusDto> getRecentScans(Integer limitCount) {
         List<ScanStatusDto> scans = new List<ScanStatusDto>();
         
-        for (Scan__c scan : [
-            SELECT Id, Status__c, StartedAt__c, FinishedAt__c, 
+        List<Scan__c> scanRecords = [
+            SELECT Id, Name, Name__c, Status__c, StartedAt__c, FinishedAt__c, 
                    SummaryJson__c, TargetApiVersion__c
             FROM Scan__c 
             ORDER BY StartedAt__c DESC
             LIMIT :limitCount
+        ];
+        
+        Set<Id> scanIds = new Set<Id>();
+        for (Scan__c s : scanRecords) {
+            scanIds.add(s.Id);
+        }
+        
+        Map<Id, Integer> findingsCountMap = new Map<Id, Integer>();
+        Map<Id, Integer> alertsCountMap = new Map<Id, Integer>();
+        
+        for (AggregateResult ar : [
+            SELECT ArtifactSnapshot__r.Scan__c scanId, COUNT(Id) cnt
+            FROM Finding__c
+            WHERE ArtifactSnapshot__r.Scan__c IN :scanIds
+            GROUP BY ArtifactSnapshot__r.Scan__c
         ]) {
+            Id scanId = (Id) ar.get('scanId');
+            Integer count = (Integer) ar.get('cnt');
+            findingsCountMap.put(scanId, count);
+        }
+        
+        // Count distinct artifacts (components) that have at least one finding per scan
+        for (AggregateResult ar : [
+            SELECT Scan__c scanId, COUNT(Id) cnt
+            FROM ArtifactSnapshot__c
+            WHERE Scan__c IN :scanIds
+              AND Id IN (SELECT ArtifactSnapshot__c FROM Finding__c)
+            GROUP BY Scan__c
+        ]) {
+            Id scanId = (Id) ar.get('scanId');
+            Integer count = (Integer) ar.get('cnt');
+            alertsCountMap.put(scanId, count);
+        }
+        
+        for (Scan__c scan : scanRecords) {
             ScanStatusDto status = new ScanStatusDto();
             status.scanId = scan.Id;
+            status.name = String.isNotBlank(scan.Name__c) ? scan.Name__c : scan.Name;
             status.status = scan.Status__c;
             status.startedAt = scan.StartedAt__c;
             status.finishedAt = scan.FinishedAt__c;
+            status.targetApiVersion = scan.TargetApiVersion__c;
+            status.findingsCount = findingsCountMap.containsKey(scan.Id) ? findingsCountMap.get(scan.Id) : 0;
+            status.alertsCount = alertsCountMap.containsKey(scan.Id) ? alertsCountMap.get(scan.Id) : 0;
             
             if (String.isNotBlank(scan.SummaryJson__c)) {
                 status.summary = (Map<String, Object>) JSON.deserializeUntyped(scan.SummaryJson__c);
