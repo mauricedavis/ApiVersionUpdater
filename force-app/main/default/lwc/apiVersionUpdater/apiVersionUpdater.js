@@ -20,6 +20,7 @@ import createChangePlan from '@salesforce/apex/ApiVersionUpdaterController.creat
 import getChangePlan from '@salesforce/apex/ApiVersionUpdaterController.getChangePlan';
 import getChangeItems from '@salesforce/apex/ApiVersionUpdaterController.getChangeItems';
 import executePlanWithBackup from '@salesforce/apex/ApiVersionUpdaterController.executePlanWithBackup';
+import resetPlanForRetry from '@salesforce/apex/ApiVersionUpdaterController.resetPlanForRetry';
 import getCurrentSession from '@salesforce/apex/ApiVersionUpdaterController.getCurrentSession';
 import updateSessionScan from '@salesforce/apex/ApiVersionUpdaterController.updateSessionScan';
 import updateSessionPlan from '@salesforce/apex/ApiVersionUpdaterController.updateSessionPlan';
@@ -791,8 +792,12 @@ export default class ApiVersionUpdater extends LightningElement {
         if (action === 'retry_no_tests') {
             try {
                 this.isLoading = true;
-                this.showToast('Retrying', 'Deploying without tests to bypass the test failure...', 'info');
+                this.showToast('Retrying', 'Resetting plan and deploying without tests...', 'info');
                 
+                // First, reset the plan to clear Failed status
+                await resetPlanForRetry({ planId });
+                
+                // Refresh items after reset
                 const items = await getChangeItems({ planId });
                 const eligibleIds = items
                     .filter(item => item.eligibility === 'Eligible')
