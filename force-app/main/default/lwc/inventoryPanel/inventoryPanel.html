@@ -4,9 +4,6 @@
         <!-- Compliance Overview Section -->
         <div class="slds-col slds-size_1-of-1 slds-m-bottom_medium">
             <lightning-card title="Compliance Overview" icon-name="utility:target">
-                <div slot="actions">
-                    <span class="target-badge">Target: API {targetVersion}</span>
-                </div>
                 <div class="slds-p-around_medium">
                     <template lwc:if={hasComplianceData}>
                         <div class="slds-grid slds-gutters slds-wrap">
@@ -34,6 +31,11 @@
                                             Version Range: <strong>{oldestVersion}</strong> to <strong>{newestVersion}</strong>
                                         </div>
                                     </div>
+                                </div>
+                                
+                                <!-- Target API Badge -->
+                                <div class="slds-m-bottom_small">
+                                    <span class="target-badge">Target: API {targetVersion}</span>
                                 </div>
                                 
                                 <!-- Stats Cards Row -->
