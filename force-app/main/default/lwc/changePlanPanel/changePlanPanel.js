@@ -3,6 +3,9 @@ import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import getDeploymentRunDetails from '@salesforce/apex/ApiVersionUpdaterController.getDeploymentRunDetails';
 import getDeploymentErrorsForPlan from '@salesforce/apex/ApiVersionUpdaterController.getDeploymentErrorsForPlan';
 import resetPlanForRetry from '@salesforce/apex/ApiVersionUpdaterController.resetPlanForRetry';
+import analyzeClassForRefactor from '@salesforce/apex/ApiVersionUpdaterController.analyzeClassForRefactor';
+import previewRefactor from '@salesforce/apex/ApiVersionUpdaterController.previewRefactor';
+import applyRefactor from '@salesforce/apex/ApiVersionUpdaterController.applyRefactor';
 
 export default class ChangePlanPanel extends LightningElement {
     @api changePlan = {};
@@ -18,6 +21,13 @@ export default class ChangePlanPanel extends LightningElement {
     @track validationComplete = false;
     @track validationResults = null;
     @track createBackupBeforeDeploy = true;
+    
+    @track selectedFixOption = null;
+    @track refactorPreview = null;
+    @track isLoadingPreview = false;
+    @track isApplyingFix = false;
+    @track showRefactorModal = false;
+    @track selectedComponentForFix = null;
     @track showDeployConfirmation = false;
     @track deploymentError = null;
     @track showFailedDetails = false;
@@ -202,8 +212,10 @@ export default class ChangePlanPanel extends LightningElement {
                 ],
                 fixOptions: [
                     {
+                        key: 'FUTURE_METHOD',
                         title: 'Option 1: Move callout to a @future method',
                         description: 'Best for: When the callout result is not needed immediately',
+                        canAutoApply: true,
                         code: `// Before the problematic pattern:
 // insert myRecord;
 // HttpResponse res = http.send(req); // ERROR!
@@ -222,8 +234,10 @@ public static void makeCalloutAsync(Id recordId) {
 }`
                     },
                     {
+                        key: 'QUEUEABLE',
                         title: 'Option 2: Use Queueable for more control',
                         description: 'Best for: When you need to chain operations or handle complex logic',
+                        canAutoApply: true,
                         code: `// Enqueue the callout work
 insert myRecord;
 System.enqueueJob(new MyCalloutQueueable(myRecord.Id));
@@ -245,8 +259,10 @@ public class MyCalloutQueueable implements Queueable, Database.AllowsCallouts {
 }`
                     },
                     {
+                        key: 'REORDER',
                         title: 'Option 3: Reorder operations (callout first)',
                         description: 'Best for: When you can make the callout before any DML',
+                        canAutoApply: true,
                         code: `// Move callout BEFORE any DML:
 HttpRequest req = new HttpRequest();
 // ... setup request
@@ -384,6 +400,124 @@ User u = new User(Username = uniqueValue + '@test.com', ...);`
         if (url) {
             window.open(url, '_blank');
         }
+    }
+
+    async handleSelectFixOption(event) {
+        const fixOption = event.currentTarget.dataset.option;
+        const componentName = this.affectedComponents[0]?.name;
+        
+        if (!componentName) {
+            this.dispatchEvent(new ShowToastEvent({
+                title: 'Error',
+                message: 'No affected component found',
+                variant: 'error'
+            }));
+            return;
+        }
+        
+        this.selectedFixOption = fixOption;
+        this.selectedComponentForFix = componentName;
+        this.isLoadingPreview = true;
+        this.showRefactorModal = true;
+        
+        try {
+            const result = await previewRefactor({ 
+                className: componentName, 
+                fixOption: fixOption 
+            });
+            
+            this.refactorPreview = result;
+            
+            if (!result.success) {
+                this.dispatchEvent(new ShowToastEvent({
+                    title: 'Preview Error',
+                    message: result.message,
+                    variant: 'warning'
+                }));
+            }
+        } catch (error) {
+            this.dispatchEvent(new ShowToastEvent({
+                title: 'Error',
+                message: error.body?.message || error.message || 'Failed to generate preview',
+                variant: 'error'
+            }));
+            this.showRefactorModal = false;
+        } finally {
+            this.isLoadingPreview = false;
+        }
+    }
+
+    async handleApplyFix() {
+        if (!this.selectedComponentForFix || !this.selectedFixOption) {
+            return;
+        }
+        
+        this.isApplyingFix = true;
+        
+        try {
+            const result = await applyRefactor({ 
+                className: this.selectedComponentForFix, 
+                fixOption: this.selectedFixOption 
+            });
+            
+            if (result.success) {
+                this.dispatchEvent(new ShowToastEvent({
+                    title: 'Success',
+                    message: `Code fix applied to ${this.selectedComponentForFix}. ${result.message}`,
+                    variant: 'success'
+                }));
+                
+                this.showRefactorModal = false;
+                this.refactorPreview = null;
+                this.selectedFixOption = null;
+                
+                this.dispatchEvent(new CustomEvent('coderefactored', {
+                    detail: {
+                        className: this.selectedComponentForFix,
+                        fixOption: this.selectedFixOption,
+                        deploymentId: result.deploymentId
+                    }
+                }));
+            } else {
+                this.dispatchEvent(new ShowToastEvent({
+                    title: 'Error',
+                    message: result.message,
+                    variant: 'error'
+                }));
+            }
+        } catch (error) {
+            this.dispatchEvent(new ShowToastEvent({
+                title: 'Error',
+                message: error.body?.message || error.message || 'Failed to apply fix',
+                variant: 'error'
+            }));
+        } finally {
+            this.isApplyingFix = false;
+        }
+    }
+
+    handleCloseRefactorModal() {
+        this.showRefactorModal = false;
+        this.refactorPreview = null;
+        this.selectedFixOption = null;
+        this.selectedComponentForFix = null;
+    }
+
+    get applyButtonLabel() {
+        return this.isApplyingFix ? 'Applying Fix...' : 'Apply Fix to Code';
+    }
+
+    get fixOptionLabel() {
+        const labels = {
+            'FUTURE_METHOD': 'Option 1: @future method',
+            'QUEUEABLE': 'Option 2: Queueable class',
+            'REORDER': 'Option 3: Reorder operations'
+        };
+        return labels[this.selectedFixOption] || this.selectedFixOption;
+    }
+
+    get hasRefactorPreview() {
+        return this.refactorPreview && this.refactorPreview.success;
     }
 
     get showQuickFixOption() {

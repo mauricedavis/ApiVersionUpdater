@@ -396,4 +396,19 @@ public with sharing class ApiVersionUpdaterController {
         
         return historyItems;
     }
+    
+    @AuraEnabled
+    public static CodeRefactorService.CodeAnalysis analyzeClassForRefactor(String className) {
+        return CodeRefactorService.analyzeClass(className);
+    }
+    
+    @AuraEnabled
+    public static CodeRefactorService.RefactorResult previewRefactor(String className, String fixOption) {
+        return CodeRefactorService.previewRefactor(className, fixOption);
+    }
+    
+    @AuraEnabled
+    public static CodeRefactorService.RefactorResult applyRefactor(String className, String fixOption) {
+        return CodeRefactorService.applyRefactor(className, fixOption);
+    }
 }
