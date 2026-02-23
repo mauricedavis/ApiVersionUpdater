@@ -108,12 +108,12 @@ public with sharing class ApiVersionUpdaterController {
                                                    incrementPolicy, validateOnly, testPolicy);
     }
     
-    @AuraEnabled(cacheable=true)
+    @AuraEnabled
     public static DeploymentService.ChangePlanDto getChangePlan(String planId) {
         return DeploymentService.getChangePlan(planId);
     }
     
-    @AuraEnabled(cacheable=true)
+    @AuraEnabled
     public static List<DeploymentService.ChangeItemDto> getChangeItems(String planId) {
         return DeploymentService.getChangeItems(planId);
     }
@@ -219,6 +219,11 @@ public with sharing class ApiVersionUpdaterController {
     @AuraEnabled
     public static SessionService.SessionDto updateSessionPlan(String planId) {
         return SessionService.updateSessionPlan(planId);
+    }
+    
+    @AuraEnabled
+    public static SessionService.SessionDto viewSessionPlan(String planId) {
+        return SessionService.viewSessionPlan(planId);
     }
     
     @AuraEnabled

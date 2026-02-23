@@ -24,6 +24,7 @@ import resetPlanForRetry from '@salesforce/apex/ApiVersionUpdaterController.rese
 import getCurrentSession from '@salesforce/apex/ApiVersionUpdaterController.getCurrentSession';
 import updateSessionScan from '@salesforce/apex/ApiVersionUpdaterController.updateSessionScan';
 import updateSessionPlan from '@salesforce/apex/ApiVersionUpdaterController.updateSessionPlan';
+import viewSessionPlan from '@salesforce/apex/ApiVersionUpdaterController.viewSessionPlan';
 import updateSessionDeploymentRun from '@salesforce/apex/ApiVersionUpdaterController.updateSessionDeploymentRun';
 import clearSession from '@salesforce/apex/ApiVersionUpdaterController.clearSession';
 
@@ -1118,8 +1119,14 @@ export default class ApiVersionUpdater extends LightningElement {
             this.changePlan = plan;
             this.changeItems = items;
             
-            this.session = await updateSessionPlan({ planId: id });
-            this.workflowStep = 3;
+            this.session = await viewSessionPlan({ planId: id });
+            
+            if (this.session?.currentDeploymentRunId) {
+                this.currentDeploymentRunId = this.session.currentDeploymentRunId;
+                this.workflowStep = 4;
+            } else {
+                this.workflowStep = 3;
+            }
             this.updateCompletedSteps();
             
             this.activeTab = 'changeplan';

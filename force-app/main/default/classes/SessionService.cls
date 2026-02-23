@@ -151,6 +151,15 @@ public with sharing class SessionService {
     }
     
     @AuraEnabled
+    public static SessionDto viewSessionPlan(String planId) {
+        UserSession__c session = getOrCreateSession();
+        session.CurrentChangePlan__c = planId;
+        session.LastAccessedAt__c = Datetime.now();
+        update session;
+        return getCurrentSession();
+    }
+    
+    @AuraEnabled
     public static SessionDto updateSessionDeploymentRun(String deploymentRunId) {
         UserSession__c session = getOrCreateSession();
         session.CurrentDeploymentRun__c = deploymentRunId;
