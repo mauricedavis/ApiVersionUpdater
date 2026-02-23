@@ -785,6 +785,55 @@ export default class ApiVersionUpdater extends LightningElement {
         this.showToast('Success', 'Backup has been cleaned up', 'success');
     }
 
+    async handleQuickFix(event) {
+        const { planId, errorPattern, action } = event.detail;
+        
+        if (action === 'retry_no_tests') {
+            try {
+                this.isLoading = true;
+                this.showToast('Retrying', 'Deploying without tests to bypass the test failure...', 'info');
+                
+                const items = await getChangeItems({ planId });
+                const eligibleIds = items
+                    .filter(item => item.eligibility === 'Eligible')
+                    .map(item => item.id);
+                
+                if (eligibleIds.length === 0) {
+                    this.showToast('Error', 'No eligible items to deploy', 'error');
+                    return;
+                }
+                
+                const runId = await executePlanWithBackup({ 
+                    planId, 
+                    createBackup: true,
+                    selectedItemIds: eligibleIds,
+                    testLevel: 'NoTestRun'
+                });
+                
+                this.currentDeploymentRunId = runId;
+                this.hasBackup = true;
+                this.workflowStep = 4;
+                this.activeView = 'deploy';
+                this.updateCompletedSteps();
+                
+                this.session = await updateSessionDeploymentRun({ deploymentRunId: runId });
+                
+                this.showToast('Deployment Started', 'Deployment started without tests. A backup was created.', 'success');
+                
+                const plan = await getChangePlan({ planId });
+                this.changePlan = plan;
+                
+                const updatedItems = await getChangeItems({ planId });
+                this.changeItems = updatedItems;
+                
+            } catch (err) {
+                this.showToast('Error', this.extractErrorMessage(err), 'error');
+            } finally {
+                this.isLoading = false;
+            }
+        }
+    }
+
     async handlePlanReset(event) {
         const { planId } = event.detail;
         try {

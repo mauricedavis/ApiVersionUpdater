@@ -156,6 +156,98 @@ export default class ChangePlanPanel extends LightningElement {
         return 'Deployment failed. Please check the change items for details.';
     }
 
+    get detectedErrorPattern() {
+        const errorText = (this.deploymentError || '') + 
+            this.failedItems.map(i => i.errorDetails || '').join(' ');
+        
+        if (errorText.includes('uncommitted work pending') || 
+            errorText.includes('commit or rollback before calling out')) {
+            return 'CALLOUT_AFTER_DML';
+        }
+        if (errorText.includes('MIXED_DML_OPERATION')) {
+            return 'MIXED_DML';
+        }
+        if (errorText.includes('FIELD_CUSTOM_VALIDATION_EXCEPTION')) {
+            return 'VALIDATION_RULE';
+        }
+        if (errorText.includes('REQUIRED_FIELD_MISSING')) {
+            return 'REQUIRED_FIELD';
+        }
+        if (errorText.includes('DUPLICATE_VALUE') || errorText.includes('DUPLICATE_USERNAME')) {
+            return 'DUPLICATE';
+        }
+        if (errorText.includes('System.LimitException') || errorText.includes('Too many SOQL')) {
+            return 'GOVERNOR_LIMIT';
+        }
+        return null;
+    }
+
+    get hasKnownErrorPattern() {
+        return this.detectedErrorPattern !== null;
+    }
+
+    get errorPatternGuidance() {
+        const patterns = {
+            'CALLOUT_AFTER_DML': {
+                title: 'Callout After DML Error',
+                description: 'A test is performing DML operations (insert/update/delete) and then making a callout (HTTP request). Salesforce requires DML to be committed before callouts.',
+                quickFix: 'Retry deployment with "No Tests" to skip this test',
+                codeFix: 'In the test class, wrap the callout in Test.startTest()/Test.stopTest() or use Test.setMock() to mock the callout.',
+                canQuickFix: true
+            },
+            'MIXED_DML': {
+                title: 'Mixed DML Operation Error',
+                description: 'The code is mixing DML on setup objects (User, Profile, etc.) with standard objects in the same transaction.',
+                quickFix: 'Retry deployment with "No Tests" to skip this test',
+                codeFix: 'Use System.runAs() to separate setup object DML from standard object DML in your test.',
+                canQuickFix: true
+            },
+            'VALIDATION_RULE': {
+                title: 'Validation Rule Error',
+                description: 'A validation rule is blocking the data changes. The test data may not meet the validation criteria.',
+                quickFix: null,
+                codeFix: 'Update the test data to satisfy the validation rule, or deactivate the rule temporarily.',
+                canQuickFix: false
+            },
+            'REQUIRED_FIELD': {
+                title: 'Required Field Missing',
+                description: 'A required field is not populated in the test data.',
+                quickFix: null,
+                codeFix: 'Update the test class to populate all required fields on the test records.',
+                canQuickFix: false
+            },
+            'DUPLICATE': {
+                title: 'Duplicate Value Error',
+                description: 'The test is trying to create a record with a value that already exists and must be unique.',
+                quickFix: null,
+                codeFix: 'Use unique values in your test data, such as adding random strings or timestamps.',
+                canQuickFix: false
+            },
+            'GOVERNOR_LIMIT': {
+                title: 'Governor Limit Exceeded',
+                description: 'The code exceeded a Salesforce governor limit (e.g., too many SOQL queries, DML statements, or CPU time).',
+                quickFix: null,
+                codeFix: 'Optimize the code to reduce SOQL queries, bulkify DML operations, or reduce processing.',
+                canQuickFix: false
+            }
+        };
+        return patterns[this.detectedErrorPattern] || null;
+    }
+
+    get showQuickFixOption() {
+        return this.errorPatternGuidance?.canQuickFix === true;
+    }
+
+    handleQuickFix() {
+        this.dispatchEvent(new CustomEvent('quickfix', {
+            detail: {
+                planId: this.changePlan.id,
+                errorPattern: this.detectedErrorPattern,
+                action: 'retry_no_tests'
+            }
+        }));
+    }
+
     async loadDeploymentError() {
         if (this.deploymentRunId) {
             try {

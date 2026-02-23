@@ -138,15 +138,51 @@
                                         </div>
                                     </template>
                                     
-                                    <!-- Remediation Guidance -->
-                                    <div class="remediation-section slds-m-top_medium">
-                                        <h4 class="slds-text-title_caps slds-m-bottom_x-small">How to Fix</h4>
-                                        <ol class="remediation-steps">
-                                            <li>Review the error details above for each failed component</li>
-                                            <li>Fix the issues in the source code (common issues: missing dependencies, syntax errors, test failures)</li>
-                                            <li>Click "Retry Validation" to re-validate the components</li>
-                                        </ol>
-                                    </div>
+                                    <!-- Smart Error Guidance -->
+                                    <template lwc:if={hasKnownErrorPattern}>
+                                        <div class="smart-guidance slds-m-top_medium">
+                                            <div class="smart-guidance-header">
+                                                <lightning-icon icon-name="utility:light_bulb" size="x-small"></lightning-icon>
+                                                <h4>{errorPatternGuidance.title}</h4>
+                                            </div>
+                                            <p class="smart-guidance-description">{errorPatternGuidance.description}</p>
+                                            
+                                            <template lwc:if={showQuickFixOption}>
+                                                <div class="quick-fix-box">
+                                                    <div class="quick-fix-content">
+                                                        <lightning-icon icon-name="utility:sparkles" size="x-small" class="quick-fix-icon"></lightning-icon>
+                                                        <div>
+                                                            <strong>Quick Fix Available:</strong> {errorPatternGuidance.quickFix}
+                                                        </div>
+                                                    </div>
+                                                    <lightning-button
+                                                        variant="success"
+                                                        label="Deploy Without Tests"
+                                                        icon-name="utility:upload"
+                                                        onclick={handleQuickFix}
+                                                        class="slds-m-top_small">
+                                                    </lightning-button>
+                                                </div>
+                                            </template>
+                                            
+                                            <div class="code-fix-section slds-m-top_small">
+                                                <strong>Permanent Fix:</strong>
+                                                <p class="code-fix-text">{errorPatternGuidance.codeFix}</p>
+                                            </div>
+                                        </div>
+                                    </template>
+                                    
+                                    <!-- Generic Remediation Guidance -->
+                                    <template lwc:else>
+                                        <div class="remediation-section slds-m-top_medium">
+                                            <h4 class="slds-text-title_caps slds-m-bottom_x-small">How to Fix</h4>
+                                            <ol class="remediation-steps">
+                                                <li>Review the error details above for each failed component</li>
+                                                <li>Fix the issues in the source code (common issues: missing dependencies, syntax errors, test failures)</li>
+                                                <li>Click "Retry Validation" to re-validate the components</li>
+                                            </ol>
+                                        </div>
+                                    </template>
                                     
                                     <!-- Action Buttons -->
                                     <div class="error-actions slds-m-top_medium">
