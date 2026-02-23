@@ -718,6 +718,12 @@ export default class ApiVersionUpdater extends LightningElement {
 
         try {
             this.isLoading = true;
+            
+            // Reset plan if it's in Failed status from a previous attempt
+            if (this.changePlan?.status === 'Failed') {
+                await resetPlanForRetry({ planId });
+            }
+            
             const runId = await executePlanWithBackup({ 
                 planId, 
                 createBackup: createBackup || false,
