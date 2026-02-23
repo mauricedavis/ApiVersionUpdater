@@ -239,10 +239,25 @@ export default class ChangePlanPanel extends LightningElement {
     }
 
     handleQuickFix() {
-        // Pass the currently selected item IDs so only those are deployed
-        const selectedIds = this.selectedItemIds.length > 0 
-            ? this.selectedItemIds 
-            : this.eligibleItems.map(item => item.id);
+        // Use validated items first, then selected items - NEVER fall back to all eligible
+        let selectedIds = [];
+        
+        if (this.validationResults?.validatedIds?.length > 0) {
+            selectedIds = this.validationResults.validatedIds;
+        } else if (this.selectedItemIds.length > 0) {
+            selectedIds = this.selectedItemIds;
+        }
+        
+        if (selectedIds.length === 0) {
+            this.dispatchEvent(new ShowToastEvent({
+                title: 'Error',
+                message: 'No items selected. Please select items first.',
+                variant: 'error'
+            }));
+            return;
+        }
+        
+        console.log('handleQuickFix - deploying items:', selectedIds.length, selectedIds);
         
         this.dispatchEvent(new CustomEvent('quickfix', {
             detail: {
