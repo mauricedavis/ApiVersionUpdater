@@ -787,31 +787,36 @@ export default class ApiVersionUpdater extends LightningElement {
     }
 
     async handleQuickFix(event) {
-        const { planId, errorPattern, action } = event.detail;
+        const { planId, errorPattern, action, selectedItemIds } = event.detail;
         
         if (action === 'retry_no_tests') {
             try {
                 this.isLoading = true;
-                this.showToast('Retrying', 'Resetting plan and deploying without tests...', 'info');
+                
+                // Use the passed selected items, or fall back to getting eligible items
+                let itemsToDeployIds = selectedItemIds;
+                
+                if (!itemsToDeployIds || itemsToDeployIds.length === 0) {
+                    const items = await getChangeItems({ planId });
+                    itemsToDeployIds = items
+                        .filter(item => item.eligibility === 'Eligible')
+                        .map(item => item.id);
+                }
+                
+                if (itemsToDeployIds.length === 0) {
+                    this.showToast('Error', 'No items to deploy', 'error');
+                    return;
+                }
+                
+                this.showToast('Retrying', `Resetting plan and deploying ${itemsToDeployIds.length} item(s) without tests...`, 'info');
                 
                 // First, reset the plan to clear Failed status
                 await resetPlanForRetry({ planId });
                 
-                // Refresh items after reset
-                const items = await getChangeItems({ planId });
-                const eligibleIds = items
-                    .filter(item => item.eligibility === 'Eligible')
-                    .map(item => item.id);
-                
-                if (eligibleIds.length === 0) {
-                    this.showToast('Error', 'No eligible items to deploy', 'error');
-                    return;
-                }
-                
                 const runId = await executePlanWithBackup({ 
                     planId, 
                     createBackup: true,
-                    selectedItemIds: eligibleIds,
+                    selectedItemIds: itemsToDeployIds,
                     testLevel: 'NoTestRun'
                 });
                 
@@ -823,8 +828,9 @@ export default class ApiVersionUpdater extends LightningElement {
                 
                 this.session = await updateSessionDeploymentRun({ deploymentRunId: runId });
                 
-                this.showToast('Deployment Started', 'Deployment started without tests. A backup was created.', 'success');
+                this.showToast('Deployment Started', `Deploying ${itemsToDeployIds.length} item(s) without tests. A backup was created.`, 'success');
                 
+                // Refresh plan and items to show updated status
                 const plan = await getChangePlan({ planId });
                 this.changePlan = plan;
                 

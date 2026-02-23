@@ -239,11 +239,17 @@ export default class ChangePlanPanel extends LightningElement {
     }
 
     handleQuickFix() {
+        // Pass the currently selected item IDs so only those are deployed
+        const selectedIds = this.selectedItemIds.length > 0 
+            ? this.selectedItemIds 
+            : this.eligibleItems.map(item => item.id);
+        
         this.dispatchEvent(new CustomEvent('quickfix', {
             detail: {
                 planId: this.changePlan.id,
                 errorPattern: this.detectedErrorPattern,
-                action: 'retry_no_tests'
+                action: 'retry_no_tests',
+                selectedItemIds: selectedIds
             }
         }));
     }
