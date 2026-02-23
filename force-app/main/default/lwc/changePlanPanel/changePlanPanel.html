@@ -539,11 +539,14 @@
                                 </div>
                             </div>
                             
-                            <div class="preview-warning slds-m-top_medium">
-                                <lightning-icon icon-name="utility:warning" variant="warning" size="small"></lightning-icon>
+                            <div class="preview-info slds-m-top_medium">
+                                <lightning-icon icon-name="utility:info" variant="inverse" size="small"></lightning-icon>
                                 <span class="slds-m-left_x-small">
-                                    <strong>Important:</strong> This will modify the Apex class in your org. 
-                                    Make sure to review the changes carefully before applying.
+                                    <strong>How to apply:</strong> 
+                                    1. Click "Copy Code" to copy the refactored code 
+                                    2. Click "Open Class in Setup" to open Apex Classes 
+                                    3. Find <strong>{selectedComponentForFix}</strong>, click Edit 
+                                    4. Select all (Ctrl+A), paste (Ctrl+V), Save
                                 </span>
                             </div>
                         </div>
@@ -556,20 +559,29 @@
                         </div>
                     </template>
                 </div>
-                <footer class="slds-modal__footer">
+                <footer class="slds-modal__footer slds-modal__footer_directional">
                     <lightning-button 
                         variant="neutral" 
                         label="Cancel" 
                         onclick={handleCloseRefactorModal}>
                     </lightning-button>
-                    <lightning-button 
-                        variant="brand" 
-                        label={applyButtonLabel}
-                        icon-name="utility:upload"
-                        onclick={handleApplyFix}
-                        disabled={isApplyingFix}
-                        class="slds-m-left_x-small">
-                    </lightning-button>
+                    <div class="slds-button-group">
+                        <lightning-button 
+                            variant="neutral" 
+                            label="1. Copy Code"
+                            icon-name="utility:copy"
+                            onclick={handleCopyRefactoredCode}
+                            disabled={isLoadingPreview}>
+                        </lightning-button>
+                        <lightning-button 
+                            variant="brand" 
+                            label="2. Open Class in Setup"
+                            icon-name="utility:new_window"
+                            onclick={handleOpenClassInSetup}
+                            disabled={isLoadingPreview}
+                            class="slds-m-left_x-small">
+                        </lightning-button>
+                    </div>
                 </footer>
             </div>
         </section>

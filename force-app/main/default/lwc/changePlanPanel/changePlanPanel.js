@@ -554,8 +554,8 @@ User u = new User(Username = uniqueValue + '@test.com', ...);`
             navigator.clipboard.writeText(this.refactorPreview.refactoredCode)
                 .then(() => {
                     this.dispatchEvent(new ShowToastEvent({
-                        title: 'Copied!',
-                        message: 'Refactored code copied to clipboard. You can now paste it in Developer Console.',
+                        title: 'Step 1 Complete!',
+                        message: 'Code copied! Now click "Open Class in Setup" to paste it.',
                         variant: 'success'
                     }));
                 })
@@ -568,6 +568,29 @@ User u = new User(Username = uniqueValue + '@test.com', ...);`
                     }));
                 });
         }
+    }
+
+    handleOpenClassInSetup() {
+        if (!this.selectedComponentForFix) {
+            this.dispatchEvent(new ShowToastEvent({
+                title: 'Error',
+                message: 'No component selected',
+                variant: 'error'
+            }));
+            return;
+        }
+        
+        const baseUrl = window.location.origin;
+        const classEditUrl = `${baseUrl}/lightning/setup/ApexClasses/home`;
+        
+        window.open(classEditUrl, '_blank');
+        
+        this.dispatchEvent(new ShowToastEvent({
+            title: 'Setup Opened',
+            message: `Find "${this.selectedComponentForFix}" in the list, click Edit, select all code (Ctrl+A), paste (Ctrl+V), and Save.`,
+            variant: 'info',
+            mode: 'sticky'
+        }));
     }
 
     get showQuickFixOption() {

@@ -631,3 +631,18 @@
     border-radius: 0.375rem;
     color: #c23934;
 }
+
+.preview-info {
+    display: flex;
+    align-items: flex-start;
+    padding: 0.75rem;
+    background: #e5f6fe;
+    border: 1px solid #0176d3;
+    border-radius: 0.375rem;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+}
+
+.preview-info strong {
+    color: #0176d3;
+}
