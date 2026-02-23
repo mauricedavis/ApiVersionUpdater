@@ -3,6 +3,7 @@
         <div slot="actions">
             <lightning-badge label={orgContext.orgName} class="slds-m-right_small"></lightning-badge>
             <lightning-badge label={orgTypeLabel} class={orgTypeBadgeClass}></lightning-badge>
+            <lightning-badge label={targetApiLabel} class="slds-badge_inverse slds-m-left_small"></lightning-badge>
             <lightning-button-icon 
                 icon-name="utility:settings" 
                 alternative-text="Settings"
@@ -37,16 +38,10 @@
             </template>
 
             <div class="slds-p-around_medium">
-                <!-- Progress Stepper - Primary Navigation -->
-                <c-progress-stepper 
-                    current-step={workflowStep}
-                    completed-steps={completedSteps}
-                    onstepclick={handleStepClick}>
-                </c-progress-stepper>
-
-                <!-- Status Summary Card -->
+                <!-- Status Summary Card - 4 Step Cards with Integrated Navigation -->
                 <c-status-summary-card
                     session={session}
+                    current-step={workflowStep}
                     scan-name={currentScanName}
                     scan-status={currentScanStatus}
                     scan-started-at={currentScanStartedAt}
@@ -57,11 +52,17 @@
                     plan-status={currentPlanStatus}
                     plan-item-count={changeItemsCount}
                     deployment-status={currentDeploymentStatus}
-                    target-api-version={settings.targetApiVersion}
+                    has-backup={hasBackup}
                     onclearsession={handleClearSession}
+                    onstartscan={handleStartScan}
+                    oncancelscan={handleCancelScan}
                     onviewscan={handleScanSelect}
+                    onviewfindings={handleViewFindings}
+                    oncreateplan={handleCreatePlan}
                     onviewplan={handlePlanSelect}
-                    onviewdeployment={handleViewDeployment}>
+                    ondeploynow={handleDeployNow}
+                    onviewdeployment={handleViewDeployment}
+                    onrestore={handleRestore}>
                 </c-status-summary-card>
 
                 <!-- Step-Based Content Views -->
@@ -195,7 +196,7 @@
                         </div>
                     </template>
 
-                    <!-- Step 3 & 4: Change Plan / Deploy -->
+                    <!-- Step 3: Change Plan -->
                     <template lwc:if={showPlanView}>
                         <div class="slds-p-around_small">
                             <template lwc:if={hasChangePlan}>
@@ -221,8 +222,8 @@
                         </div>
                     </template>
 
-                    <!-- Step 5: Backup & Restore -->
-                    <template lwc:if={showBackupView}>
+                    <!-- Step 4: Deployment & Backup -->
+                    <template lwc:if={showDeployView}>
                         <div class="slds-p-around_small">
                             <c-backup-restore-panel
                                 deployment-run-id={currentDeploymentRunId}

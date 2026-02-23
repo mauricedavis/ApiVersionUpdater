@@ -2,10 +2,9 @@ import { LightningElement, api } from 'lwc';
 
 const WORKFLOW_STEPS = [
     { id: 1, label: 'Scan', description: 'Run compliance scan', icon: 'utility:search' },
-    { id: 2, label: 'Review', description: 'Review findings', icon: 'utility:preview' },
+    { id: 2, label: 'Review', description: 'Analysis & findings', icon: 'utility:preview' },
     { id: 3, label: 'Plan', description: 'Create change plan', icon: 'utility:edit' },
-    { id: 4, label: 'Deploy', description: 'Deploy changes', icon: 'utility:upload' },
-    { id: 5, label: 'Backup', description: 'Backup & restore', icon: 'utility:backup' }
+    { id: 4, label: 'Deploy', description: 'Deploy & backup', icon: 'utility:upload' }
 ];
 
 export default class ProgressStepper extends LightningElement {

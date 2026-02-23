@@ -84,6 +84,10 @@ export default class ApiVersionUpdater extends LightningElement {
         return this.orgContext.isSandbox ? 'Sandbox' : 'Production';
     }
 
+    get targetApiLabel() {
+        return `Target: v${this.settings.targetApiVersion}`;
+    }
+
     get orgTypeBadgeClass() {
         return this.orgContext.isSandbox 
             ? 'slds-badge_lightest slds-m-right_small' 
@@ -240,11 +244,11 @@ export default class ApiVersionUpdater extends LightningElement {
     }
 
     get showPlanView() {
-        return this.activeView === 'plan' || this.workflowStep === 3 || this.workflowStep === 4;
+        return this.activeView === 'plan' || this.workflowStep === 3;
     }
 
-    get showBackupView() {
-        return this.activeView === 'backup' || this.workflowStep === 5;
+    get showDeployView() {
+        return this.activeView === 'deploy' || this.workflowStep === 4;
     }
 
     get currentScanName() {
@@ -412,7 +416,6 @@ export default class ApiVersionUpdater extends LightningElement {
         if (this.workflowStep >= 2) completed.push(1);
         if (this.workflowStep >= 3) completed.push(2);
         if (this.workflowStep >= 4) completed.push(3);
-        if (this.workflowStep >= 5) completed.push(4);
         this.completedSteps = completed;
     }
     
@@ -745,10 +748,11 @@ export default class ApiVersionUpdater extends LightningElement {
 
             if (navigateToBackup && createBackup) {
                 setTimeout(() => {
-                    this.activeTab = 'backup';
-                    this.activeView = 'backup';
-                    this.showToast('Backup Created', 
-                        'Deployment complete. Backup created for restore if needed.', 
+                    this.activeView = 'deploy';
+                    this.workflowStep = 4;
+                    this.updateCompletedSteps();
+                    this.showToast('Deployment Complete', 
+                        'Deployment successful. Backup created for restore if needed.', 
                         'success');
                     
                     setTimeout(() => {
@@ -863,8 +867,7 @@ export default class ApiVersionUpdater extends LightningElement {
             1: 'scanning',
             2: 'review',
             3: 'plan',
-            4: 'plan',
-            5: 'backup'
+            4: 'deploy'
         };
         
         const targetView = stepToView[stepId];
@@ -1057,7 +1060,18 @@ export default class ApiVersionUpdater extends LightningElement {
     }
 
     handleViewDeployment() {
-        this.activeTab = 'backup';
-        this.activeView = 'backup';
+        this.activeView = 'deploy';
+    }
+
+    handleViewFindings() {
+        this.activeView = 'review';
+    }
+
+    handleDeployNow() {
+        this.activeView = 'plan';
+    }
+
+    handleRestore() {
+        this.activeView = 'deploy';
     }
 }

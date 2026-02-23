@@ -26,24 +26,9 @@
                             
                             <!-- Summary Stats -->
                             <div class="slds-col slds-size_3-of-4">
-                                <!-- Action Buttons Row - Above Stats -->
+                                <!-- Version Range Info Row -->
                                 <div class="slds-grid slds-gutters slds-m-bottom_medium">
-                                    <div class="slds-col slds-size_1-of-2">
-                                        <lightning-button 
-                                            variant="brand" 
-                                            label="Start Compliance Scan" 
-                                            icon-name="utility:search"
-                                            onclick={handleStartScan}
-                                            class="slds-m-right_small">
-                                        </lightning-button>
-                                        <lightning-button 
-                                            variant="neutral" 
-                                            label="Refresh" 
-                                            icon-name="utility:refresh"
-                                            onclick={handleRefresh}>
-                                        </lightning-button>
-                                    </div>
-                                    <div class="slds-col slds-size_1-of-2 slds-text-align_right">
+                                    <div class="slds-col slds-text-align_right">
                                         <div class="version-range">
                                             <lightning-icon icon-name="utility:trending" size="x-small" class="slds-m-right_x-small"></lightning-icon>
                                             Version Range: <strong>{oldestVersion}</strong> to <strong>{newestVersion}</strong>

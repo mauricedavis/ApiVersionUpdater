@@ -13,6 +13,8 @@ export default class StatusSummaryCard extends LightningElement {
     @api planItemCount = 0;
     @api deploymentStatus;
     @api targetApiVersion;
+    @api hasBackup = false;
+    @api currentStep = 0;
 
     get hasScan() {
         return this.session?.currentScanId || this.scanName;
@@ -26,8 +28,12 @@ export default class StatusSummaryCard extends LightningElement {
         return this.session?.currentDeploymentRunId || this.deploymentStatus;
     }
 
+    get hasFindings() {
+        return this.findingsCount > 0 || this.componentsNeedingUpgrade > 0;
+    }
+
     get displayScanName() {
-        return this.session?.currentScanName || this.scanName || 'No scan selected';
+        return this.session?.currentScanName || this.scanName || '';
     }
 
     get displayScanStatus() {
@@ -35,7 +41,7 @@ export default class StatusSummaryCard extends LightningElement {
     }
 
     get displayPlanName() {
-        return this.session?.currentChangePlanName || this.planName || 'No plan created';
+        return this.session?.currentChangePlanName || this.planName || '';
     }
 
     get displayPlanStatus() {
@@ -46,12 +52,119 @@ export default class StatusSummaryCard extends LightningElement {
         return this.session?.currentChangePlanItemCount || this.planItemCount || 0;
     }
 
-    get sourceScanName() {
-        return this.session?.currentChangePlanSourceScanName || null;
-    }
-
     get displayDeploymentStatus() {
         return this.session?.currentDeploymentRunStatus || this.deploymentStatus || '-';
+    }
+
+    get isScanRunning() {
+        const status = this.displayScanStatus;
+        return status === 'Running' || status === 'Queued';
+    }
+
+    get isScanComplete() {
+        const status = this.displayScanStatus;
+        return status === 'Completed' || status === 'Failed';
+    }
+
+    get isPlanReady() {
+        const status = this.displayPlanStatus;
+        return status === 'Draft' || status === 'Ready' || status === 'Validated';
+    }
+
+    get showStartScanButton() {
+        return !this.hasScan && !this.isScanRunning;
+    }
+
+    get showCreatePlanButton() {
+        return this.hasFindings && !this.hasPlan && this.isScanComplete;
+    }
+
+    get showDeployButton() {
+        return this.hasPlan && this.isPlanReady && !this.hasDeployment;
+    }
+
+    get showRestoreButton() {
+        return this.hasDeployment && this.hasBackup;
+    }
+
+    get scanCardClass() {
+        let classes = 'status-card';
+        if (this.currentStep === 1) classes += ' card-active';
+        if (this.isScanComplete) classes += ' card-complete';
+        if (this.isScanRunning) classes += ' card-in-progress';
+        return classes;
+    }
+
+    get findingsCardClass() {
+        let classes = 'status-card';
+        if (this.currentStep === 2) classes += ' card-active';
+        if (this.hasFindings && this.isScanComplete) classes += ' card-complete';
+        return classes;
+    }
+
+    get planCardClass() {
+        let classes = 'status-card';
+        if (this.currentStep === 3) classes += ' card-active';
+        if (this.hasPlan) classes += ' card-complete';
+        return classes;
+    }
+
+    get deploymentCardClass() {
+        let classes = 'status-card';
+        if (this.currentStep === 4) classes += ' card-active';
+        if (this.hasDeployment) {
+            const status = this.displayDeploymentStatus;
+            if (status === 'Completed' || status === 'Succeeded') {
+                classes += ' card-complete';
+            } else if (status === 'Failed') {
+                classes += ' card-error';
+            } else {
+                classes += ' card-in-progress';
+            }
+        }
+        return classes;
+    }
+
+    get scanStepBadgeClass() {
+        if (this.currentStep >= 2 || this.isScanComplete) return 'step-badge step-badge-complete';
+        if (this.currentStep === 1) return 'step-badge step-badge-active';
+        return 'step-badge';
+    }
+
+    get findingsStepBadgeClass() {
+        if (this.currentStep >= 3) return 'step-badge step-badge-complete';
+        if (this.currentStep === 2) return 'step-badge step-badge-active';
+        return 'step-badge';
+    }
+
+    get planStepBadgeClass() {
+        if (this.currentStep >= 4) return 'step-badge step-badge-complete';
+        if (this.currentStep === 3) return 'step-badge step-badge-active';
+        return 'step-badge';
+    }
+
+    get deployStepBadgeClass() {
+        if (this.hasDeployment && this.displayDeploymentStatus === 'Completed') return 'step-badge step-badge-complete';
+        if (this.currentStep === 4) return 'step-badge step-badge-active';
+        return 'step-badge';
+    }
+
+    get connector1Class() {
+        if (this.currentStep >= 2 || this.isScanComplete) return 'connector connector-complete';
+        if (this.currentStep === 1 && this.isScanRunning) return 'connector connector-active';
+        return 'connector';
+    }
+
+    get connector2Class() {
+        if (this.currentStep >= 3) return 'connector connector-complete';
+        if (this.currentStep === 2) return 'connector connector-active';
+        return 'connector';
+    }
+
+    get connector3Class() {
+        if (this.currentStep >= 4) return 'connector connector-complete';
+        if (this.currentStep === 3) return 'connector connector-active';
+        return 'connector';
     }
 
     get scanStatusClass() {
@@ -79,44 +192,6 @@ export default class StatusSummaryCard extends LightningElement {
         return 'status-badge status-neutral';
     }
 
-    get formattedScanDate() {
-        const date = this.session?.currentScanStartedAt || this.scanStartedAt;
-        if (!date) return '-';
-        return new Date(date).toLocaleString();
-    }
-
-    get showClearButton() {
-        return this.hasScan || this.hasPlan || this.hasDeployment;
-    }
-
-    handleClearSession() {
-        this.dispatchEvent(new CustomEvent('clearsession'));
-    }
-
-    handleScanClick() {
-        if (this.hasScan) {
-            this.dispatchEvent(new CustomEvent('viewscan', {
-                detail: { scanId: this.session?.currentScanId }
-            }));
-        }
-    }
-
-    handlePlanClick() {
-        if (this.hasPlan) {
-            this.dispatchEvent(new CustomEvent('viewplan', {
-                detail: { planId: this.session?.currentChangePlanId }
-            }));
-        }
-    }
-
-    handleDeploymentClick() {
-        if (this.hasDeployment) {
-            this.dispatchEvent(new CustomEvent('viewdeployment', {
-                detail: { deploymentRunId: this.session?.currentDeploymentRunId }
-            }));
-        }
-    }
-
     get hasDeploymentStats() {
         return this.session?.currentDeploymentTotalProcessed > 0;
     }
@@ -131,5 +206,76 @@ export default class StatusSummaryCard extends LightningElement {
 
     get hasDeploymentFailures() {
         return this.deploymentFailCount > 0;
+    }
+
+    get showClearButton() {
+        return this.hasScan || this.hasPlan || this.hasDeployment;
+    }
+
+    handleClearSession() {
+        this.dispatchEvent(new CustomEvent('clearsession'));
+    }
+
+    handleStartScan(event) {
+        event.stopPropagation();
+        this.dispatchEvent(new CustomEvent('startscan'));
+    }
+
+    handleCancelScan(event) {
+        event.stopPropagation();
+        this.dispatchEvent(new CustomEvent('cancelscan'));
+    }
+
+    handleScanClick() {
+        if (this.hasScan) {
+            this.dispatchEvent(new CustomEvent('viewscan', {
+                detail: { scanId: this.session?.currentScanId }
+            }));
+        }
+    }
+
+    handleFindingsClick() {
+        if (this.hasFindings) {
+            this.dispatchEvent(new CustomEvent('viewfindings', {
+                detail: { scanId: this.session?.currentScanId }
+            }));
+        }
+    }
+
+    handleCreatePlan(event) {
+        event.stopPropagation();
+        this.dispatchEvent(new CustomEvent('createplan', {
+            detail: { scanId: this.session?.currentScanId }
+        }));
+    }
+
+    handlePlanClick() {
+        if (this.hasPlan) {
+            this.dispatchEvent(new CustomEvent('viewplan', {
+                detail: { planId: this.session?.currentChangePlanId }
+            }));
+        }
+    }
+
+    handleDeployClick(event) {
+        event.stopPropagation();
+        this.dispatchEvent(new CustomEvent('deploynow', {
+            detail: { planId: this.session?.currentChangePlanId }
+        }));
+    }
+
+    handleDeploymentClick() {
+        if (this.hasDeployment) {
+            this.dispatchEvent(new CustomEvent('viewdeployment', {
+                detail: { deploymentRunId: this.session?.currentDeploymentRunId }
+            }));
+        }
+    }
+
+    handleRestoreClick(event) {
+        event.stopPropagation();
+        this.dispatchEvent(new CustomEvent('restore', {
+            detail: { deploymentRunId: this.session?.currentDeploymentRunId }
+        }));
     }
 }
