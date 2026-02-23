@@ -728,11 +728,9 @@ export default class ApiVersionUpdater extends LightningElement {
         try {
             this.isLoading = true;
             
-            // Reset plan if it's in Failed status from a previous attempt
-            if (this.changePlan?.status === 'Failed') {
-                console.log('Resetting failed plan before deployment');
-                await resetPlanForRetry({ planId });
-            }
+            // Always reset plan before deployment to ensure clean state
+            console.log('Resetting plan before deployment to ensure clean state');
+            await resetPlanForRetry({ planId });
             
             const runId = await executePlanWithBackup({ 
                 planId, 
