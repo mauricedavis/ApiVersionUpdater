@@ -591,6 +591,10 @@
     color: #2e844a;
 }
 
+.copy-code-btn {
+    margin-left: auto;
+}
+
 .code-original {
     border: 2px solid #c23934;
 }

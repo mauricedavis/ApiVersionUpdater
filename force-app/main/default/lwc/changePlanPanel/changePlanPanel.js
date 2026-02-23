@@ -403,17 +403,29 @@ User u = new User(Username = uniqueValue + '@test.com', ...);`
     }
 
     async handleSelectFixOption(event) {
+        console.log('handleSelectFixOption called');
         const fixOption = event.currentTarget.dataset.option;
-        const componentName = this.affectedComponents[0]?.name;
+        console.log('Fix option:', fixOption);
+        console.log('Failed items:', this.failedItems);
+        console.log('Affected components:', this.affectedComponents);
+        
+        let componentName = this.affectedComponents[0]?.name;
+        
+        if (!componentName && this.failedItems.length > 0) {
+            componentName = this.failedItems[0].fullName;
+        }
         
         if (!componentName) {
+            console.log('No component name found');
             this.dispatchEvent(new ShowToastEvent({
                 title: 'Error',
-                message: 'No affected component found',
+                message: 'No affected component found. Please ensure there are failed items with error details.',
                 variant: 'error'
             }));
             return;
         }
+        
+        console.log('Component name:', componentName);
         
         this.selectedFixOption = fixOption;
         this.selectedComponentForFix = componentName;
@@ -421,27 +433,40 @@ User u = new User(Username = uniqueValue + '@test.com', ...);`
         this.showRefactorModal = true;
         
         try {
+            console.log('Calling previewRefactor with:', componentName, fixOption);
             const result = await previewRefactor({ 
                 className: componentName, 
                 fixOption: fixOption 
             });
+            console.log('Preview result:', result);
             
-            this.refactorPreview = result;
-            
-            if (!result.success) {
-                this.dispatchEvent(new ShowToastEvent({
-                    title: 'Preview Error',
-                    message: result.message,
-                    variant: 'warning'
-                }));
+            if (result) {
+                this.refactorPreview = result;
+                
+                if (!result.success) {
+                    this.dispatchEvent(new ShowToastEvent({
+                        title: 'Preview Error',
+                        message: result.message || 'Preview generation failed',
+                        variant: 'warning'
+                    }));
+                }
+            } else {
+                this.refactorPreview = {
+                    success: false,
+                    message: 'No response received from server'
+                };
             }
         } catch (error) {
+            console.error('Preview error:', error);
+            this.refactorPreview = {
+                success: false,
+                message: error.body?.message || error.message || 'Failed to generate preview'
+            };
             this.dispatchEvent(new ShowToastEvent({
                 title: 'Error',
                 message: error.body?.message || error.message || 'Failed to generate preview',
                 variant: 'error'
             }));
-            this.showRefactorModal = false;
         } finally {
             this.isLoadingPreview = false;
         }
@@ -517,7 +542,32 @@ User u = new User(Username = uniqueValue + '@test.com', ...);`
     }
 
     get hasRefactorPreview() {
-        return this.refactorPreview && this.refactorPreview.success;
+        return this.refactorPreview && this.refactorPreview.success === true;
+    }
+
+    get hasRefactorError() {
+        return this.refactorPreview && this.refactorPreview.success === false;
+    }
+
+    handleCopyRefactoredCode() {
+        if (this.refactorPreview?.refactoredCode) {
+            navigator.clipboard.writeText(this.refactorPreview.refactoredCode)
+                .then(() => {
+                    this.dispatchEvent(new ShowToastEvent({
+                        title: 'Copied!',
+                        message: 'Refactored code copied to clipboard. You can now paste it in Developer Console.',
+                        variant: 'success'
+                    }));
+                })
+                .catch(err => {
+                    console.error('Copy failed:', err);
+                    this.dispatchEvent(new ShowToastEvent({
+                        title: 'Copy Failed',
+                        message: 'Could not copy to clipboard. Please select and copy the code manually.',
+                        variant: 'warning'
+                    }));
+                });
+        }
     }
 
     get showQuickFixOption() {

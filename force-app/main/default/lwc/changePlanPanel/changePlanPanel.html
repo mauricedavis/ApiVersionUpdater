@@ -525,6 +525,13 @@
                                     <h5 class="code-panel-title code-panel-title-new">
                                         <lightning-icon icon-name="utility:new" size="xx-small"></lightning-icon>
                                         Refactored Code
+                                        <lightning-button
+                                            variant="base"
+                                            label="Copy Code"
+                                            icon-name="utility:copy"
+                                            onclick={handleCopyRefactoredCode}
+                                            class="copy-code-btn">
+                                        </lightning-button>
                                     </h5>
                                     <div class="code-block code-refactored">
                                         <pre><code>{refactorPreview.refactoredCode}</code></pre>
@@ -542,9 +549,7 @@
                         </div>
                     </template>
                     
-                    <template lwc:if={refactorPreview.success}>
-                    </template>
-                    <template lwc:elseif={refactorPreview}>
+                    <template lwc:if={hasRefactorError}>
                         <div class="preview-error slds-p-around_medium">
                             <lightning-icon icon-name="utility:error" variant="error" size="small"></lightning-icon>
                             <span class="slds-m-left_x-small">{refactorPreview.message}</span>

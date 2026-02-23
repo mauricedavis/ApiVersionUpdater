@@ -62,10 +62,17 @@ public with sharing class CodeRefactorService {
         result.changes = new List<String>();
         
         try {
+            List<ApexClass> existingClasses = [SELECT Id, Name FROM ApexClass WHERE Name = :className LIMIT 1];
+            if (existingClasses.isEmpty()) {
+                result.success = false;
+                result.message = 'Class not found in org: ' + className + '. Please verify the class name.';
+                return result;
+            }
+            
             String classBody = getApexClassBody(className);
             if (String.isBlank(classBody)) {
                 result.success = false;
-                result.message = 'Could not retrieve class body for: ' + className;
+                result.message = 'Class "' + className + '" exists but body could not be retrieved. This may be a managed package class or permission issue.';
                 return result;
             }
             
@@ -120,17 +127,39 @@ public with sharing class CodeRefactorService {
         try {
             String deployId = deployApexClass(className, result.refactoredCode);
             result.deploymentId = deployId;
-            result.message = 'Refactoring applied. Deployment ID: ' + deployId;
+            result.message = 'Refactoring applied successfully! Deployment ID: ' + deployId;
             
         } catch (Exception e) {
             result.success = false;
-            result.message = 'Error applying refactor: ' + e.getMessage();
+            result.message = 'Auto-deployment failed: ' + e.getMessage() + 
+                '\n\nThe refactored code has been generated successfully. To apply manually:\n' +
+                '1. Copy the refactored code from the preview\n' +
+                '2. Go to Setup → Apex Classes → ' + className + '\n' +
+                '3. Click Edit and replace the code\n' +
+                '4. Save the class';
         }
         
         return result;
     }
     
     private static String getApexClassBody(String className) {
+        List<ApexClass> classes = [
+            SELECT Id, Body FROM ApexClass WHERE Name = :className LIMIT 1
+        ];
+        
+        if (!classes.isEmpty() && String.isNotBlank(classes[0].Body)) {
+            return classes[0].Body;
+        }
+        
+        return getApexClassBodyViaTooling(className);
+    }
+    
+    private static String getApexClassBodyViaTooling(String className) {
+        String sessionId = getValidSessionId();
+        if (String.isBlank(sessionId)) {
+            return null;
+        }
+        
         String endpoint = URL.getOrgDomainUrl().toExternalForm() + 
             '/services/data/v65.0/tooling/query/?q=' +
             EncodingUtil.urlEncode('SELECT Id, Body FROM ApexClass WHERE Name = \'' + 
@@ -139,22 +168,34 @@ public with sharing class CodeRefactorService {
         HttpRequest req = new HttpRequest();
         req.setEndpoint(endpoint);
         req.setMethod('GET');
-        req.setHeader('Authorization', 'Bearer ' + UserInfo.getSessionId());
+        req.setHeader('Authorization', 'Bearer ' + sessionId);
         req.setHeader('Content-Type', 'application/json');
         
-        Http http = new Http();
-        HttpResponse res = http.send(req);
-        
-        if (res.getStatusCode() == 200) {
-            Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(res.getBody());
-            List<Object> records = (List<Object>) response.get('records');
-            if (!records.isEmpty()) {
-                Map<String, Object> record = (Map<String, Object>) records[0];
-                return (String) record.get('Body');
+        try {
+            Http http = new Http();
+            HttpResponse res = http.send(req);
+            
+            if (res.getStatusCode() == 200) {
+                Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(res.getBody());
+                List<Object> records = (List<Object>) response.get('records');
+                if (!records.isEmpty()) {
+                    Map<String, Object> record = (Map<String, Object>) records[0];
+                    return (String) record.get('Body');
+                }
             }
+        } catch (Exception e) {
+            System.debug('Tooling API error: ' + e.getMessage());
         }
         
         return null;
+    }
+    
+    private static String getValidSessionId() {
+        String sessionId = UserInfo.getSessionId();
+        if (String.isNotBlank(sessionId) && !sessionId.startsWith('00D')) {
+            return sessionId;
+        }
+        return sessionId;
     }
     
     private static Boolean isDmlStatement(String line) {
@@ -355,11 +396,17 @@ public with sharing class CodeRefactorService {
         
         String classId = classes[0].Id;
         
-        String containerId = createMetadataContainer();
-        addApexClassMember(containerId, classId, newBody);
-        String asyncRequestId = deployContainer(containerId);
-        
-        return asyncRequestId;
+        try {
+            String containerId = createMetadataContainer();
+            addApexClassMember(containerId, classId, newBody);
+            String asyncRequestId = deployContainer(containerId);
+            return asyncRequestId;
+        } catch (System.CalloutException ce) {
+            throw new AuraHandledException('Tooling API callout failed. This may be due to session restrictions. Error: ' + ce.getMessage() + 
+                '. Please copy the refactored code from the preview and apply it manually in Developer Console.');
+        } catch (Exception e) {
+            throw new AuraHandledException('Deployment failed: ' + e.getMessage() + ' (' + e.getTypeName() + ')');
+        }
     }
     
     private static String createMetadataContainer() {
