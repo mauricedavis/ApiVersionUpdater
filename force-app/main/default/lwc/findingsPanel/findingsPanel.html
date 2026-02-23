@@ -1,29 +1,5 @@
 <template>
     <div class="slds-grid slds-gutters slds-wrap">
-        <!-- Action Bar at Top -->
-        <div class="slds-col slds-size_1-of-1 slds-m-bottom_medium">
-            <div class="slds-box slds-theme_shade action-bar">
-                <div class="slds-grid slds-gutters slds-grid_vertical-align-center">
-                    <div class="slds-col slds-size_2-of-3">
-                        <h2 class="slds-text-heading_small">
-                            <lightning-icon icon-name="utility:checkin" size="small" class="slds-m-right_x-small"></lightning-icon>
-                            Ready to upgrade? Create a change plan to update your components.
-                        </h2>
-                    </div>
-                    <div class="slds-col slds-size_1-of-3 slds-text-align_right">
-                        <lightning-button 
-                            variant="brand" 
-                            label="Create Change Plan"
-                            icon-name="utility:checkin"
-                            onclick={handleCreatePlan}
-                            disabled={hasBlockingFindings}
-                            title={createPlanDisabledReason}>
-                        </lightning-button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
         <!-- Components Needing Upgrade Section -->
         <div class="slds-col slds-size_1-of-1 slds-m-bottom_medium">
             <lightning-card title="Components Needing Upgrade" icon-name="utility:warning">

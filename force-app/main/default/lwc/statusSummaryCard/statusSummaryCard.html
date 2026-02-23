@@ -64,13 +64,11 @@
                                     class="action-button">
                                 </lightning-button>
                             </template>
-                            <template lwc:elseif={hasScan}>
-                                <lightning-button 
-                                    variant="neutral" 
-                                    label="View Scan"
-                                    onclick={handleScanClick}
-                                    class="action-button">
-                                </lightning-button>
+                            <template lwc:elseif={isScanComplete}>
+                                <div class="scan-complete-hint">
+                                    <lightning-icon icon-name="utility:forward" size="xx-small"></lightning-icon>
+                                    <span>Review findings</span>
+                                </div>
                             </template>
                         </div>
                     </div>
