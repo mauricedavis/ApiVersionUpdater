@@ -2,12 +2,12 @@
     <lightning-card title="Current Session" icon-name="utility:database">
         <div slot="actions">
             <template lwc:if={showClearButton}>
-                <lightning-button-icon 
-                    icon-name="utility:refresh" 
-                    alternative-text="Clear Session"
-                    title="Start New Session"
+                <lightning-button 
+                    variant="neutral"
+                    label="New Session"
+                    icon-name="utility:add"
                     onclick={handleClearSession}>
-                </lightning-button-icon>
+                </lightning-button>
             </template>
         </div>
 

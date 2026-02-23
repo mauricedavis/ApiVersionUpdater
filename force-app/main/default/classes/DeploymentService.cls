@@ -43,6 +43,24 @@ public with sharing class DeploymentService {
         
         Decimal targetVersion = Decimal.valueOf(targetApiVersion);
         
+        Set<Id> snapshotIds = new Set<Id>();
+        for (ArtifactSnapshot__c snap : snapshots) {
+            snapshotIds.add(snap.Id);
+        }
+        
+        Map<Id, Integer> blockingFindingsMap = new Map<Id, Integer>();
+        for (AggregateResult ar : [
+            SELECT ArtifactSnapshot__c snapId, COUNT(Id) cnt
+            FROM Finding__c
+            WHERE ArtifactSnapshot__c IN :snapshotIds
+            AND IsBlocking__c = true
+            GROUP BY ArtifactSnapshot__c
+        ]) {
+            Id snapId = (Id) ar.get('snapId');
+            Integer count = (Integer) ar.get('cnt');
+            blockingFindingsMap.put(snapId, count);
+        }
+        
         ChangePlan__c plan = new ChangePlan__c(
             Status__c = 'Draft',
             CreatedFromScan__c = scanId,
@@ -78,12 +96,9 @@ public with sharing class DeploymentService {
                 item.BlockReason__c = 'Version jump exceeds incremental policy limit (max 6)';
             }
             
-            Integer blockingFindings = [
-                SELECT COUNT() 
-                FROM Finding__c 
-                WHERE ArtifactSnapshot__c = :snap.Id 
-                AND IsBlocking__c = true
-            ];
+            Integer blockingFindings = blockingFindingsMap.containsKey(snap.Id) 
+                ? blockingFindingsMap.get(snap.Id) 
+                : 0;
             
             if (blockingFindings > 0) {
                 item.Eligibility__c = 'Blocked';
@@ -172,11 +187,11 @@ public with sharing class DeploymentService {
     
     @AuraEnabled
     public static String executePlan(String planId) {
-        return executePlanWithBackup(planId, false, new List<String>());
+        return executePlanWithBackup(planId, false, new List<String>(), 'NoTestRun');
     }
     
     @AuraEnabled
-    public static String executePlanWithBackup(String planId, Boolean createBackup, List<String> selectedItemIds) {
+    public static String executePlanWithBackup(String planId, Boolean createBackup, List<String> selectedItemIds, String testLevel) {
         ChangePlan__c plan = [
             SELECT Id, Status__c, ValidationMode__c, TestPolicy__c, TargetApiVersion__c
             FROM ChangePlan__c 
@@ -188,13 +203,14 @@ public with sharing class DeploymentService {
         }
         
         Boolean validateOnly = plan.ValidationMode__c == 'ValidateOnly';
+        String effectiveTestLevel = String.isBlank(testLevel) ? 'NoTestRun' : testLevel;
         
         DeploymentRun__c run = new DeploymentRun__c(
             ChangePlan__c = planId,
             Status__c = 'Queued',
             StartedAt__c = Datetime.now(),
             ValidateOnly__c = validateOnly,
-            TestPolicy__c = plan.TestPolicy__c
+            TestPolicy__c = effectiveTestLevel
         );
         insert run;
         
@@ -217,10 +233,11 @@ public with sharing class DeploymentService {
             'runId' => run.Id,
             'validateOnly' => validateOnly,
             'backupCreated' => createBackup,
-            'selectedItemCount' => selectedItemIds != null ? selectedItemIds.size() : 0
+            'selectedItemCount' => selectedItemIds != null ? selectedItemIds.size() : 0,
+            'testLevel' => effectiveTestLevel
         });
         
-        System.enqueueJob(new DeploymentQueueable(run.Id, planId, selectedItemIds));
+        System.enqueueJob(new DeploymentQueueable(run.Id, planId, selectedItemIds, effectiveTestLevel));
         
         return run.Id;
     }
@@ -291,11 +308,13 @@ public with sharing class DeploymentService {
         private String runId;
         private String planId;
         private List<String> selectedItemIds;
+        private String testLevel;
         
-        public DeploymentQueueable(String runId, String planId, List<String> selectedItemIds) {
+        public DeploymentQueueable(String runId, String planId, List<String> selectedItemIds, String testLevel) {
             this.runId = runId;
             this.planId = planId;
             this.selectedItemIds = selectedItemIds != null ? selectedItemIds : new List<String>();
+            this.testLevel = String.isBlank(testLevel) ? 'NoTestRun' : testLevel;
         }
         
         public void execute(QueueableContext context) {
@@ -328,6 +347,15 @@ public with sharing class DeploymentService {
             );
             update run;
             
+            ChangePlan__c planRecord = [
+                SELECT Id, TargetApiVersion__c, ValidationMode__c
+                FROM ChangePlan__c
+                WHERE Id = :planId
+            ];
+            
+            Boolean isValidateOnly = planRecord.ValidationMode__c == 'ValidateOnly';
+            Decimal targetVersion = Decimal.valueOf(planRecord.TargetApiVersion__c);
+            
             List<ChangeItem__c> itemsToProcess;
             
             if (selectedItemIds != null && !selectedItemIds.isEmpty()) {
@@ -350,17 +378,103 @@ public with sharing class DeploymentService {
                 ];
             }
             
+            if (itemsToProcess.isEmpty()) {
+                run.Status__c = 'Completed';
+                run.FinishedAt__c = Datetime.now();
+                run.ResultsJson__c = JSON.serialize(new Map<String, Object>{
+                    'successCount' => 0,
+                    'failCount' => 0,
+                    'totalProcessed' => 0,
+                    'message' => 'No eligible items to process'
+                });
+                update run;
+                return;
+            }
+            
             Integer successCount = 0;
             Integer failCount = 0;
+            List<String> errorMessages = new List<String>();
             
+            Map<String, List<ChangeItem__c>> itemsByType = new Map<String, List<ChangeItem__c>>();
             for (ChangeItem__c item : itemsToProcess) {
+                if (!itemsByType.containsKey(item.ArtifactType__c)) {
+                    itemsByType.put(item.ArtifactType__c, new List<ChangeItem__c>());
+                }
+                itemsByType.get(item.ArtifactType__c).add(item);
+            }
+            
+            for (String artifactType : itemsByType.keySet()) {
+                List<ChangeItem__c> typeItems = itemsByType.get(artifactType);
+                
+                if (!isSupportedArtifactType(artifactType)) {
+                    for (ChangeItem__c item : typeItems) {
+                        item.ApplyStatus__c = 'Failed';
+                        item.ErrorDetails__c = 'Unsupported artifact type: ' + artifactType;
+                        failCount++;
+                    }
+                    continue;
+                }
+                
                 try {
-                    item.ApplyStatus__c = 'Applied';
-                    successCount++;
+                    String containerId = createMetadataContainer();
+                    
+                    for (ChangeItem__c item : typeItems) {
+                        try {
+                            addMemberToContainer(containerId, item.ArtifactType__c, 
+                                                 item.FullName__c, targetVersion);
+                            item.ApplyStatus__c = 'Pending';
+                        } catch (Exception e) {
+                            item.ApplyStatus__c = 'Failed';
+                            item.ErrorDetails__c = e.getMessage();
+                            failCount++;
+                            errorMessages.add(item.FullName__c + ': ' + e.getMessage());
+                        }
+                    }
+                    
+                    List<ChangeItem__c> pendingItems = new List<ChangeItem__c>();
+                    for (ChangeItem__c item : typeItems) {
+                        if (item.ApplyStatus__c == 'Pending') {
+                            pendingItems.add(item);
+                        }
+                    }
+                    
+                    if (!pendingItems.isEmpty()) {
+                        String asyncRequestId = deployContainer(containerId, isValidateOnly, this.testLevel);
+                        
+                        String status = pollForCompletion(asyncRequestId);
+                        
+                        if (status == 'Completed') {
+                            for (ChangeItem__c item : pendingItems) {
+                                item.ApplyStatus__c = 'Applied';
+                                successCount++;
+                            }
+                        } else if (status == 'Failed' || status == 'Error') {
+                            String errorDetail = getContainerErrorDetails(asyncRequestId);
+                            for (ChangeItem__c item : pendingItems) {
+                                item.ApplyStatus__c = 'Failed';
+                                item.ErrorDetails__c = errorDetail;
+                                failCount++;
+                            }
+                            errorMessages.add('Container deployment failed: ' + errorDetail);
+                        } else {
+                            for (ChangeItem__c item : pendingItems) {
+                                item.ApplyStatus__c = 'Failed';
+                                item.ErrorDetails__c = 'Deployment timed out. Status: ' + status;
+                                failCount++;
+                            }
+                            errorMessages.add('Deployment timed out with status: ' + status);
+                        }
+                    }
+                    
                 } catch (Exception e) {
-                    item.ApplyStatus__c = 'Failed';
-                    item.ErrorDetails__c = e.getMessage();
-                    failCount++;
+                    for (ChangeItem__c item : typeItems) {
+                        if (item.ApplyStatus__c != 'Failed') {
+                            item.ApplyStatus__c = 'Failed';
+                            item.ErrorDetails__c = e.getMessage();
+                            failCount++;
+                        }
+                    }
+                    errorMessages.add('Container error for ' + artifactType + ': ' + e.getMessage());
                 }
             }
             
@@ -370,11 +484,18 @@ public with sharing class DeploymentService {
             
             run.Status__c = failCount == 0 ? 'Completed' : 'Failed';
             run.FinishedAt__c = Datetime.now();
-            run.ResultsJson__c = JSON.serialize(new Map<String, Object>{
+            
+            Map<String, Object> resultsMap = new Map<String, Object>{
                 'successCount' => successCount,
                 'failCount' => failCount,
                 'totalProcessed' => itemsToProcess.size()
-            });
+            };
+            
+            if (!errorMessages.isEmpty()) {
+                resultsMap.put('errors', errorMessages);
+            }
+            
+            run.ResultsJson__c = JSON.serialize(resultsMap);
             update run;
             
             ChangePlan__c plan = new ChangePlan__c(
@@ -382,6 +503,267 @@ public with sharing class DeploymentService {
                 Status__c = failCount == 0 ? 'Deployed' : 'Failed'
             );
             update plan;
+        }
+        
+        private Boolean isSupportedArtifactType(String artifactType) {
+            return artifactType == 'ApexClass' || 
+                   artifactType == 'ApexTrigger' || 
+                   artifactType == 'ApexPage' || 
+                   artifactType == 'ApexComponent';
+        }
+        
+        private String createMetadataContainer() {
+            String endpoint = URL.getOrgDomainUrl().toExternalForm() + 
+                '/services/data/v65.0/tooling/sobjects/MetadataContainer';
+            
+            Map<String, Object> container = new Map<String, Object>{
+                'Name' => 'ApiUpdate_' + System.currentTimeMillis()
+            };
+            
+            HttpRequest req = new HttpRequest();
+            req.setEndpoint(endpoint);
+            req.setMethod('POST');
+            req.setHeader('Authorization', 'Bearer ' + UserInfo.getSessionId());
+            req.setHeader('Content-Type', 'application/json');
+            req.setBody(JSON.serialize(container));
+            
+            Http http = new Http();
+            HttpResponse res = http.send(req);
+            
+            if (res.getStatusCode() == 201) {
+                Map<String, Object> result = (Map<String, Object>) JSON.deserializeUntyped(res.getBody());
+                return (String) result.get('id');
+            }
+            
+            throw new AuraHandledException('Failed to create metadata container: ' + res.getBody());
+        }
+        
+        private void addMemberToContainer(String containerId, String artifactType, 
+                                          String fullName, Decimal targetVersion) {
+            String memberType = getMemberType(artifactType);
+            String contentEntityId = getContentEntityId(artifactType, fullName);
+            
+            if (String.isBlank(contentEntityId)) {
+                throw new AuraHandledException('Component not found: ' + fullName);
+            }
+            
+            String currentBody = getComponentBody(artifactType, fullName);
+            
+            String endpoint = URL.getOrgDomainUrl().toExternalForm() + 
+                '/services/data/v65.0/tooling/sobjects/' + memberType;
+            
+            Map<String, Object> metadata = new Map<String, Object>{
+                'apiVersion' => targetVersion,
+                'status' => 'Active'
+            };
+            
+            Map<String, Object> member = new Map<String, Object>{
+                'MetadataContainerId' => containerId,
+                'ContentEntityId' => contentEntityId,
+                'Body' => currentBody,
+                'Metadata' => metadata
+            };
+            
+            HttpRequest req = new HttpRequest();
+            req.setEndpoint(endpoint);
+            req.setMethod('POST');
+            req.setHeader('Authorization', 'Bearer ' + UserInfo.getSessionId());
+            req.setHeader('Content-Type', 'application/json');
+            req.setBody(JSON.serialize(member));
+            
+            Http http = new Http();
+            HttpResponse res = http.send(req);
+            
+            if (res.getStatusCode() != 201) {
+                String errorMsg = parseErrorMessage(res.getBody());
+                throw new AuraHandledException(errorMsg);
+            }
+        }
+        
+        private String parseErrorMessage(String responseBody) {
+            try {
+                Object parsed = JSON.deserializeUntyped(responseBody);
+                if (parsed instanceof List<Object>) {
+                    List<Object> errors = (List<Object>) parsed;
+                    if (!errors.isEmpty()) {
+                        Map<String, Object> firstError = (Map<String, Object>) errors[0];
+                        if (firstError.containsKey('message')) {
+                            return (String) firstError.get('message');
+                        }
+                    }
+                } else if (parsed instanceof Map<String, Object>) {
+                    Map<String, Object> errorMap = (Map<String, Object>) parsed;
+                    if (errorMap.containsKey('message')) {
+                        return (String) errorMap.get('message');
+                    }
+                }
+            } catch (Exception e) {
+                // Fall through to default
+            }
+            return responseBody;
+        }
+        
+        private String deployContainer(String containerId, Boolean isCheckOnly, String testLevelParam) {
+            String endpoint = URL.getOrgDomainUrl().toExternalForm() + 
+                '/services/data/v65.0/tooling/sobjects/ContainerAsyncRequest';
+            
+            Boolean runTests = testLevelParam != 'NoTestRun';
+            
+            Map<String, Object> asyncRequest = new Map<String, Object>{
+                'MetadataContainerId' => containerId,
+                'IsCheckOnly' => isCheckOnly,
+                'IsRunTests' => runTests
+            };
+            
+            HttpRequest req = new HttpRequest();
+            req.setEndpoint(endpoint);
+            req.setMethod('POST');
+            req.setHeader('Authorization', 'Bearer ' + UserInfo.getSessionId());
+            req.setHeader('Content-Type', 'application/json');
+            req.setBody(JSON.serialize(asyncRequest));
+            
+            Http http = new Http();
+            HttpResponse res = http.send(req);
+            
+            if (res.getStatusCode() == 201) {
+                Map<String, Object> result = (Map<String, Object>) JSON.deserializeUntyped(res.getBody());
+                return (String) result.get('id');
+            }
+            
+            throw new AuraHandledException('Failed to deploy container: ' + res.getBody());
+        }
+        
+        private String pollForCompletion(String asyncRequestId) {
+            String endpoint = URL.getOrgDomainUrl().toExternalForm() + 
+                '/services/data/v65.0/tooling/sobjects/ContainerAsyncRequest/' + asyncRequestId;
+            
+            Integer maxAttempts = 60;
+            Integer attempt = 0;
+            String status = 'Queued';
+            
+            while (attempt < maxAttempts && (status == 'Queued' || status == 'Pending')) {
+                HttpRequest req = new HttpRequest();
+                req.setEndpoint(endpoint);
+                req.setMethod('GET');
+                req.setHeader('Authorization', 'Bearer ' + UserInfo.getSessionId());
+                req.setHeader('Content-Type', 'application/json');
+                
+                Http http = new Http();
+                HttpResponse res = http.send(req);
+                
+                if (res.getStatusCode() == 200) {
+                    Map<String, Object> result = (Map<String, Object>) JSON.deserializeUntyped(res.getBody());
+                    status = (String) result.get('State');
+                    
+                    if (status == 'Queued' || status == 'Pending') {
+                        attempt++;
+                    }
+                } else {
+                    throw new AuraHandledException('Failed to poll deployment status: ' + res.getBody());
+                }
+            }
+            
+            return status;
+        }
+        
+        private String getContainerErrorDetails(String asyncRequestId) {
+            String endpoint = URL.getOrgDomainUrl().toExternalForm() + 
+                '/services/data/v65.0/tooling/sobjects/ContainerAsyncRequest/' + asyncRequestId;
+            
+            HttpRequest req = new HttpRequest();
+            req.setEndpoint(endpoint);
+            req.setMethod('GET');
+            req.setHeader('Authorization', 'Bearer ' + UserInfo.getSessionId());
+            req.setHeader('Content-Type', 'application/json');
+            
+            Http http = new Http();
+            HttpResponse res = http.send(req);
+            
+            if (res.getStatusCode() == 200) {
+                Map<String, Object> result = (Map<String, Object>) JSON.deserializeUntyped(res.getBody());
+                
+                String errorMsg = (String) result.get('ErrorMsg');
+                if (String.isNotBlank(errorMsg)) {
+                    return errorMsg;
+                }
+                
+                Object deployDetails = result.get('DeployDetails');
+                if (deployDetails != null) {
+                    return JSON.serialize(deployDetails);
+                }
+                
+                return 'Deployment failed without details';
+            }
+            
+            return 'Failed to retrieve error details';
+        }
+        
+        private String getMemberType(String artifactType) {
+            switch on artifactType {
+                when 'ApexClass' {
+                    return 'ApexClassMember';
+                }
+                when 'ApexTrigger' {
+                    return 'ApexTriggerMember';
+                }
+                when 'ApexPage' {
+                    return 'ApexPageMember';
+                }
+                when 'ApexComponent' {
+                    return 'ApexComponentMember';
+                }
+                when else {
+                    throw new AuraHandledException('Unsupported artifact type: ' + artifactType);
+                }
+            }
+        }
+        
+        private String getContentEntityId(String artifactType, String fullName) {
+            switch on artifactType {
+                when 'ApexClass' {
+                    List<ApexClass> items = [SELECT Id FROM ApexClass WHERE Name = :fullName LIMIT 1];
+                    return items.isEmpty() ? null : items[0].Id;
+                }
+                when 'ApexTrigger' {
+                    List<ApexTrigger> items = [SELECT Id FROM ApexTrigger WHERE Name = :fullName LIMIT 1];
+                    return items.isEmpty() ? null : items[0].Id;
+                }
+                when 'ApexPage' {
+                    List<ApexPage> items = [SELECT Id FROM ApexPage WHERE Name = :fullName LIMIT 1];
+                    return items.isEmpty() ? null : items[0].Id;
+                }
+                when 'ApexComponent' {
+                    List<ApexComponent> items = [SELECT Id FROM ApexComponent WHERE Name = :fullName LIMIT 1];
+                    return items.isEmpty() ? null : items[0].Id;
+                }
+                when else {
+                    return null;
+                }
+            }
+        }
+        
+        private String getComponentBody(String artifactType, String fullName) {
+            switch on artifactType {
+                when 'ApexClass' {
+                    List<ApexClass> items = [SELECT Body FROM ApexClass WHERE Name = :fullName LIMIT 1];
+                    return items.isEmpty() ? '' : items[0].Body;
+                }
+                when 'ApexTrigger' {
+                    List<ApexTrigger> items = [SELECT Body FROM ApexTrigger WHERE Name = :fullName LIMIT 1];
+                    return items.isEmpty() ? '' : items[0].Body;
+                }
+                when 'ApexPage' {
+                    List<ApexPage> items = [SELECT Markup FROM ApexPage WHERE Name = :fullName LIMIT 1];
+                    return items.isEmpty() ? '' : items[0].Markup;
+                }
+                when 'ApexComponent' {
+                    List<ApexComponent> items = [SELECT Markup FROM ApexComponent WHERE Name = :fullName LIMIT 1];
+                    return items.isEmpty() ? '' : items[0].Markup;
+                }
+                when else {
+                    return '';
+                }
+            }
         }
     }
 }

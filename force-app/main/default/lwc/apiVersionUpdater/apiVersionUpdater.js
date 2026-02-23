@@ -13,6 +13,7 @@ import getRecentScans from '@salesforce/apex/ApiVersionUpdaterController.getRece
 import startScan from '@salesforce/apex/ApiVersionUpdaterController.startScan';
 import getScanStatus from '@salesforce/apex/ApiVersionUpdaterController.getScanStatus';
 import cancelScan from '@salesforce/apex/ApiVersionUpdaterController.cancelScan';
+import deleteScan from '@salesforce/apex/ApiVersionUpdaterController.deleteScan';
 import getFindingsByScan from '@salesforce/apex/ApiVersionUpdaterController.getFindingsByScan';
 import getFindingsSummary from '@salesforce/apex/ApiVersionUpdaterController.getFindingsSummary';
 import createChangePlan from '@salesforce/apex/ApiVersionUpdaterController.createChangePlan';
@@ -56,6 +57,8 @@ export default class ApiVersionUpdater extends LightningElement {
     @track error = null;
     @track activeTab = 'dashboard';
     @track activeScanSubTab = 'current';
+    @track showSettingsModal = false;
+    @track activeView = 'dashboard';
 
     apiVersions = [];
     componentTypes = [];
@@ -173,7 +176,8 @@ export default class ApiVersionUpdater extends LightningElement {
                 type: 'action',
                 typeAttributes: {
                     rowActions: [
-                        { label: 'View Findings', name: 'view' }
+                        { label: 'View Findings', name: 'view' },
+                        { label: 'Delete', name: 'delete' }
                     ]
                 }
             }
@@ -221,6 +225,26 @@ export default class ApiVersionUpdater extends LightningElement {
 
     get backupTabDisabled() {
         return !this.currentDeploymentRunId;
+    }
+
+    get showDashboardView() {
+        return this.activeView === 'dashboard' || (this.workflowStep === 0 && this.activeView !== 'settings');
+    }
+
+    get showScanningView() {
+        return this.activeView === 'scanning' || (this.workflowStep === 1 && this.isScanRunning);
+    }
+
+    get showReviewView() {
+        return this.activeView === 'review' || this.workflowStep === 2;
+    }
+
+    get showPlanView() {
+        return this.activeView === 'plan' || this.workflowStep === 3 || this.workflowStep === 4;
+    }
+
+    get showBackupView() {
+        return this.activeView === 'backup' || this.workflowStep === 5;
     }
 
     get currentScanName() {
@@ -303,7 +327,7 @@ export default class ApiVersionUpdater extends LightningElement {
                 getAvailableApiVersions(),
                 getSupportedComponentTypes(),
                 getInventoryCounts(),
-                getRecentScans({ limitCount: 10 }),
+                getRecentScans({ limitCount: 10, cacheBuster: Date.now() }),
                 getCurrentSession()
             ]);
 
@@ -515,6 +539,7 @@ export default class ApiVersionUpdater extends LightningElement {
             this.selectedScanId = scanId;
             this.currentScan = { id: scanId, status: 'Queued' };
             this.activeTab = 'scanfindings';
+            this.activeView = 'scanning';
             this.workflowStep = 1;
             this.updateCompletedSteps();
             
@@ -547,14 +572,16 @@ export default class ApiVersionUpdater extends LightningElement {
                     this.stopPolling();
                     await this.loadScanResults(scanId);
                     
-                    const scans = await getRecentScans({ limitCount: 10 });
+                    const scans = await getRecentScans({ limitCount: 10, cacheBuster: Date.now() });
                     this.recentScans = scans;
 
                     if (status.status === 'Completed') {
                         this.workflowStep = 2;
+                        this.activeView = 'review';
                         this.updateCompletedSteps();
                         this.showToast('Scan Complete', `Found ${status.findingsCount} findings`, 'success');
                     } else if (status.status === 'Failed') {
+                        this.activeView = 'review';
                         this.showToast('Scan Failed', 'Check the scan details for errors', 'error');
                     }
                 }
@@ -603,7 +630,7 @@ export default class ApiVersionUpdater extends LightningElement {
             this.stopPolling();
             this.showToast('Scan Cancelled', 'The scan has been cancelled', 'info');
             
-            const scans = await getRecentScans({ limitCount: 10 });
+            const scans = await getRecentScans({ limitCount: 10, cacheBuster: Date.now() });
             this.recentScans = scans;
         } catch (err) {
             this.showToast('Error', this.extractErrorMessage(err), 'error');
@@ -649,6 +676,7 @@ export default class ApiVersionUpdater extends LightningElement {
             this.changePlan = plan;
             this.changeItems = items;
             this.activeTab = 'changeplan';
+            this.activeView = 'plan';
             this.workflowStep = 3;
             this.updateCompletedSteps();
             
@@ -668,14 +696,15 @@ export default class ApiVersionUpdater extends LightningElement {
     }
 
     async handleExecutePlan(event) {
-        const { planId, createBackup, navigateToBackup, selectedIds } = event.detail;
+        const { planId, createBackup, navigateToBackup, selectedIds, testLevel } = event.detail;
         
         console.log('handleExecutePlan called with:', {
             planId,
             createBackup,
             navigateToBackup,
             selectedIds,
-            selectedIdsLength: selectedIds ? selectedIds.length : 0
+            selectedIdsLength: selectedIds ? selectedIds.length : 0,
+            testLevel
         });
 
         if (createBackup && (!selectedIds || selectedIds.length === 0)) {
@@ -688,7 +717,8 @@ export default class ApiVersionUpdater extends LightningElement {
             const runId = await executePlanWithBackup({ 
                 planId, 
                 createBackup: createBackup || false,
-                selectedItemIds: selectedIds || []
+                selectedItemIds: selectedIds || [],
+                testLevel: testLevel || 'NoTestRun'
             });
             
             console.log('executePlanWithBackup returned runId:', runId);
@@ -716,6 +746,7 @@ export default class ApiVersionUpdater extends LightningElement {
             if (navigateToBackup && createBackup) {
                 setTimeout(() => {
                     this.activeTab = 'backup';
+                    this.activeView = 'backup';
                     this.showToast('Backup Created', 
                         'Deployment complete. Backup created for restore if needed.', 
                         'success');
@@ -816,6 +847,7 @@ export default class ApiVersionUpdater extends LightningElement {
             this.currentDeploymentRunId = null;
             this.hasBackup = false;
             this.activeTab = 'dashboard';
+            this.activeView = 'dashboard';
             
             this.showToast('Session Cleared', 'Starting a new session', 'info');
         } catch (err) {
@@ -826,18 +858,32 @@ export default class ApiVersionUpdater extends LightningElement {
     handleStepClick(event) {
         const { stepId, stepLabel } = event.detail;
         
-        const stepToTab = {
-            1: 'scanfindings',
-            2: 'scanfindings',
-            3: 'changeplan',
-            4: 'changeplan',
+        const stepToView = {
+            0: 'dashboard',
+            1: 'scanning',
+            2: 'review',
+            3: 'plan',
+            4: 'plan',
             5: 'backup'
         };
         
-        const targetTab = stepToTab[stepId];
-        if (targetTab) {
-            this.activeTab = targetTab;
+        const targetView = stepToView[stepId];
+        if (targetView) {
+            this.activeView = targetView;
         }
+    }
+
+    handleSettingsClick() {
+        this.showSettingsModal = true;
+    }
+
+    handleCloseSettings() {
+        this.showSettingsModal = false;
+    }
+
+    async handleSaveSettingsAndClose() {
+        await this.handleSaveSettings();
+        this.showSettingsModal = false;
     }
 
     async handleScanHistoryAction(event) {
@@ -860,8 +906,10 @@ export default class ApiVersionUpdater extends LightningElement {
                 if (scanStatus.status === 'Completed' || scanStatus.status === 'Failed') {
                     await this.loadScanResults(row.scanId);
                     this.workflowStep = 2;
+                    this.activeView = 'review';
                 } else {
                     this.workflowStep = 1;
+                    this.activeView = 'scanning';
                 }
                 this.updateCompletedSteps();
                 
@@ -873,6 +921,57 @@ export default class ApiVersionUpdater extends LightningElement {
             } finally {
                 this.isLoading = false;
             }
+        } else if (action.name === 'delete') {
+            const deletedScanName = row.name;
+            
+            try {
+                this.isLoading = true;
+                
+                await deleteScan({ scanId: row.scanId });
+                
+                if (this.selectedScanId === row.scanId) {
+                    this.selectedScanId = null;
+                    this.currentScan = null;
+                    this.findings = [];
+                    this.changePlan = null;
+                    this.changeItems = [];
+                }
+                
+                this.recentScans = null;
+                
+                const scans = await getRecentScans({ limitCount: 10, cacheBuster: Date.now() });
+                this.recentScans = scans;
+                
+                this.showToast('Success', `Scan "${deletedScanName}" has been deleted`, 'success');
+                
+            } catch (err) {
+                this.showToast('Error', this.extractErrorMessage(err), 'error');
+                const scans = await getRecentScans({ limitCount: 10, cacheBuster: Date.now() });
+                this.recentScans = scans;
+            } finally {
+                this.isLoading = false;
+                this.activeView = 'dashboard';
+            }
+        }
+    }
+
+    async handleRefreshScanHistory() {
+        try {
+            this.isLoading = true;
+            
+            this.recentScans = [];
+            
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            const scans = await getRecentScans({ limitCount: 10, cacheBuster: Date.now() });
+            this.recentScans = scans;
+            
+            this.showToast('Refreshed', 'Scan history has been refreshed', 'success');
+        } catch (err) {
+            this.showToast('Error', this.extractErrorMessage(err), 'error');
+        } finally {
+            this.isLoading = false;
+            this.activeView = 'dashboard';
         }
     }
 
@@ -901,8 +1000,10 @@ export default class ApiVersionUpdater extends LightningElement {
             if (scanStatus.status === 'Completed' || scanStatus.status === 'Failed') {
                 await this.loadScanResults(id);
                 this.workflowStep = 2;
+                this.activeView = 'review';
             } else {
                 this.workflowStep = 1;
+                this.activeView = 'scanning';
             }
             this.updateCompletedSteps();
             
@@ -945,6 +1046,7 @@ export default class ApiVersionUpdater extends LightningElement {
             this.updateCompletedSteps();
             
             this.activeTab = 'changeplan';
+            this.activeView = 'plan';
             this.showToast('Plan Loaded', `Loaded plan: ${plan.name || id}`, 'success');
             
         } catch (err) {
@@ -956,5 +1058,6 @@ export default class ApiVersionUpdater extends LightningElement {
 
     handleViewDeployment() {
         this.activeTab = 'backup';
+        this.activeView = 'backup';
     }
 }

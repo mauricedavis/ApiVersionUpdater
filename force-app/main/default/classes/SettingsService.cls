@@ -94,8 +94,7 @@ public with sharing class SettingsService {
         }
         
         Set<String> validTypes = new Set<String>{
-            'ApexClass', 'ApexTrigger', 'ApexPage', 'ApexComponent', 
-            'Flow', 'AuraBundle', 'LWC'
+            'ApexClass', 'ApexTrigger', 'ApexPage', 'ApexComponent'
         };
         for (String t : settings.includedTypes) {
             if (!validTypes.contains(t)) {
@@ -120,10 +119,7 @@ public with sharing class SettingsService {
             'ApexClass',
             'ApexTrigger',
             'ApexPage',
-            'ApexComponent',
-            'Flow',
-            'AuraBundle',
-            'LWC'
+            'ApexComponent'
         };
     }
     

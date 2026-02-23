@@ -80,9 +80,14 @@ public with sharing class ApiVersionUpdaterController {
         ScanService.cancelScan(scanId);
     }
     
-    @AuraEnabled(cacheable=true)
-    public static List<ScanService.ScanStatusDto> getRecentScans(Integer limitCount) {
-        return ScanService.getRecentScans(limitCount);
+    @AuraEnabled
+    public static void deleteScan(String scanId) {
+        ScanService.deleteScan(scanId);
+    }
+    
+    @AuraEnabled
+    public static List<ScanService.ScanStatusDto> getRecentScans(Integer limitCount, Long cacheBuster) {
+        return ScanService.getRecentScans(limitCount, cacheBuster);
     }
     
     @AuraEnabled(cacheable=true)
@@ -119,8 +124,8 @@ public with sharing class ApiVersionUpdaterController {
     }
     
     @AuraEnabled
-    public static String executePlanWithBackup(String planId, Boolean createBackup, List<String> selectedItemIds) {
-        return DeploymentService.executePlanWithBackup(planId, createBackup, selectedItemIds);
+    public static String executePlanWithBackup(String planId, Boolean createBackup, List<String> selectedItemIds, String testLevel) {
+        return DeploymentService.executePlanWithBackup(planId, createBackup, selectedItemIds, testLevel);
     }
     
     @AuraEnabled

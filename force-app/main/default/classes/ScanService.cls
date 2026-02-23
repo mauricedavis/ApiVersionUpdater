@@ -131,8 +131,90 @@ public with sharing class ScanService {
         }
     }
     
-    @AuraEnabled(cacheable=true)
-    public static List<ScanStatusDto> getRecentScans(Integer limitCount) {
+    @AuraEnabled
+    public static void deleteScan(String scanId) {
+        if (String.isBlank(scanId)) {
+            throw new AuraHandledException('Scan ID is required');
+        }
+        
+        List<Scan__c> scans = [SELECT Id, Status__c FROM Scan__c WHERE Id = :scanId LIMIT 1];
+        if (scans.isEmpty()) {
+            throw new AuraHandledException('Scan not found');
+        }
+        
+        Scan__c scan = scans[0];
+        
+        if (scan.Status__c == 'Running' || scan.Status__c == 'Queued') {
+            throw new AuraHandledException('Cannot delete a scan that is currently running. Cancel it first.');
+        }
+        
+        List<ArtifactSnapshot__c> snapshots = [
+            SELECT Id FROM ArtifactSnapshot__c WHERE Scan__c = :scanId
+        ];
+        
+        if (!snapshots.isEmpty()) {
+            Set<Id> snapshotIds = new Set<Id>();
+            for (ArtifactSnapshot__c snap : snapshots) {
+                snapshotIds.add(snap.Id);
+            }
+            
+            List<Finding__c> findings = [
+                SELECT Id FROM Finding__c WHERE ArtifactSnapshot__c IN :snapshotIds
+            ];
+            if (!findings.isEmpty()) {
+                delete findings;
+            }
+            
+            delete snapshots;
+        }
+        
+        List<ChangePlan__c> plans = [
+            SELECT Id FROM ChangePlan__c WHERE CreatedFromScan__c = :scanId
+        ];
+        if (!plans.isEmpty()) {
+            Set<Id> planIds = new Set<Id>();
+            for (ChangePlan__c plan : plans) {
+                planIds.add(plan.Id);
+            }
+            
+            List<ChangeItem__c> changeItems = [
+                SELECT Id FROM ChangeItem__c WHERE ChangePlan__c IN :planIds
+            ];
+            if (!changeItems.isEmpty()) {
+                delete changeItems;
+            }
+            
+            List<DeploymentRun__c> runs = [
+                SELECT Id FROM DeploymentRun__c WHERE ChangePlan__c IN :planIds
+            ];
+            if (!runs.isEmpty()) {
+                Set<Id> runIds = new Set<Id>();
+                for (DeploymentRun__c run : runs) {
+                    runIds.add(run.Id);
+                }
+                
+                List<BackupItem__c> backups = [
+                    SELECT Id FROM BackupItem__c WHERE DeploymentRun__c IN :runIds
+                ];
+                if (!backups.isEmpty()) {
+                    delete backups;
+                }
+                
+                delete runs;
+            }
+            
+            delete plans;
+        }
+        
+        delete scan;
+        
+        logAuditEvent('ScanDeleted', new Map<String, Object>{
+            'scanId' => scanId
+        });
+    }
+    
+    @AuraEnabled
+    public static List<ScanStatusDto> getRecentScans(Integer limitCount, Long cacheBuster) {
         List<ScanStatusDto> scans = new List<ScanStatusDto>();
         
         List<Scan__c> scanRecords = [

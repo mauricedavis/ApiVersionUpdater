@@ -153,6 +153,11 @@
     color: white;
 }
 
+/* Test Level Icon */
+.test-icon {
+    color: #9050e9;
+}
+
 /* Backup Icon */
 .backup-icon {
     color: #0176d3;

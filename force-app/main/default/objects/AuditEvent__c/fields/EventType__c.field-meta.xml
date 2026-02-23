@@ -81,6 +81,11 @@
                 <default>false</default>
                 <label>Restore Completed</label>
             </value>
+            <value>
+                <fullName>ScanDeleted</fullName>
+                <default>false</default>
+                <label>Scan Deleted</label>
+            </value>
         </valueSetDefinition>
     </valueSet>
 </CustomField>

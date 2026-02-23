@@ -520,6 +520,21 @@ export default class ChangePlanPanel extends LightningElement {
         this.createBackupBeforeDeploy = event.target.checked;
     }
 
+    handleTestLevelChange(event) {
+        this.selectedTestLevel = event.detail.value;
+    }
+
+    get showTestLevelWarning() {
+        return this.selectedTestLevel === 'NoTestRun';
+    }
+
+    get testLevelWarningMessage() {
+        if (this.selectedTestLevel === 'NoTestRun') {
+            return 'Deploying without tests skips validation. Ensure your components are tested separately.';
+        }
+        return '';
+    }
+
     handleCancelDeploy() {
         this.showDeployConfirmation = false;
     }
@@ -535,7 +550,8 @@ export default class ChangePlanPanel extends LightningElement {
             selectedIds,
             selectedIdsLength: selectedIds.length,
             validationResults: this.validationResults,
-            createBackup: this.createBackupBeforeDeploy
+            createBackup: this.createBackupBeforeDeploy,
+            testLevel: this.selectedTestLevel
         });
 
         this.dispatchEvent(new CustomEvent('executeplan', {
@@ -544,7 +560,8 @@ export default class ChangePlanPanel extends LightningElement {
                 validateOnly: false,
                 selectedIds: selectedIds,
                 createBackup: this.createBackupBeforeDeploy,
-                navigateToBackup: this.createBackupBeforeDeploy
+                navigateToBackup: this.createBackupBeforeDeploy,
+                testLevel: this.selectedTestLevel
             }
         }));
     }

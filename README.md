@@ -13,11 +13,12 @@ This tool helps Salesforce administrators and developers:
 
 ## Screenshots
 
-The application provides a modern, intuitive interface with:
-- **Dashboard** - Overview of compliance metrics and version distribution
-- **Scans & Findings** - Component inventory with analysis results
-- **Change Plan** - Validation and deployment workflow
-- **Backup & Restore** - Component backup management and deployment history
+The application provides a modern, streamlined interface with step-based navigation:
+- **Dashboard** - Compliance overview, version distribution, and Recent Sessions for quick access to previous work
+- **Scan** - Real-time scan progress and status
+- **Review** - Component findings with analysis results and alerts
+- **Plan** - Change plan creation, validation, and deployment with test level options
+- **Backup** - Component backup management, restore capability, and deployment history
 
 ## Features
 
@@ -45,6 +46,7 @@ The application provides a modern, intuitive interface with:
 
 #### Deployment Workflow
 - Two-step validation and deploy process
+- **Test Level Selection** - Choose from No Tests, Run Local Tests, or Run All Tests
 - Backup creation before deployment (optional)
 - Deployment of selected components only
 - Real-time status tracking
@@ -66,9 +68,12 @@ The application provides a modern, intuitive interface with:
 
 ### User Interface
 - Modern SLDS-compliant design
-- Tabbed navigation with contextual icons
+- **Step-based navigation** via interactive progress stepper (replaces tabs for cleaner UX)
+- **Current Session card** showing scan, plan, and deployment status at a glance
+- **Settings modal** accessible via gear icon in header
+- **Recent Sessions** on Dashboard for quick access to previous work
 - Status badges and color-coded indicators
-- Responsive data tables with sorting and filtering
+- Responsive data tables with sorting, filtering, and row actions
 - Modal dialogs for confirmations and previews
 - Toast notifications for user feedback
 
@@ -94,7 +99,7 @@ sf org assign permset --name Deployer_Admin --target-org YOUR_ORG_ALIAS
 
 ### Post-Installation
 1. Navigate to the App Launcher and search for "API Version Updater"
-2. Configure your target API version in the Settings tab
+2. Click the gear icon in the header to configure your target API version
 3. Run your first compliance scan from the Dashboard
 
 ## Data Model
@@ -163,35 +168,43 @@ sf org assign permset --name Deployer_Admin --target-org YOUR_ORG_ALIAS
 ### Typical Workflow
 
 1. **Configure Settings**
-   - Set your target API version (e.g., 55.0)
+   - Click the gear icon in the header to open Settings
+   - Set your target API version (e.g., 56.0)
    - Choose scope policy (Custom Only, All, etc.)
    - Select component types to include
 
 2. **Run Compliance Scan**
    - Click "Start Compliance Scan" from the Dashboard
-   - Wait for scan to complete
-   - Review compliance metrics and alerts
+   - Progress stepper automatically advances to Scan step
+   - Wait for scan to complete (auto-advances to Review)
 
 3. **Review Findings**
-   - Navigate to Scans & Findings tab
-   - Review components needing upgrade
+   - Review components needing upgrade in the findings list
    - Check for blocking issues (red alerts)
+   - Filter by component type or severity
 
 4. **Create Change Plan**
-   - Click "Create Change Plan" 
-   - Select target API version
+   - Click "Create Change Plan" from the Review step
+   - Progress stepper advances to Plan step
    - Review eligible vs blocked components
 
 5. **Validate & Deploy**
    - Select components to deploy
    - Click "Validate Selected" to check compilation
+   - **Choose Test Level** (No Tests, Local Tests, or All Tests)
    - Enable backup option (recommended)
-   - Click "Deploy Selected" to apply changes
+   - Click "Deploy Now" to apply changes
 
 6. **Monitor & Restore (if needed)**
-   - Check deployment status in Current Session
-   - View deployment history in Backup & Restore
+   - Check deployment status in Current Session card
+   - Click Backup step to view deployment history
    - Restore individual components if needed
+
+### Quick Actions
+
+- **Resume Previous Work**: Click on any session in "Recent Sessions" on the Dashboard
+- **Start Fresh**: Click "New Session" button in the Current Session card
+- **Delete Old Scans**: Use the delete action in Recent Sessions table
 
 ## Development
 
@@ -220,7 +233,16 @@ sf project deploy start --source-dir force-app --target-org YOUR_ORG_ALIAS --wat
 
 ## Changelog
 
-### Version 1.0 (Current)
+### Version 1.1 (Current)
+- **Simplified Navigation** - Replaced tab-based navigation with step-based workflow using the progress stepper
+- **Test Level Selection** - Choose No Tests, Run Local Tests, or Run All Tests during deployment
+- **Recent Sessions** - Moved scan history to Dashboard for quick access to previous work
+- **Delete Scans** - Added ability to delete old scans from Recent Sessions
+- **Settings Modal** - Moved settings to a modal dialog accessible via header icon
+- **Improved Session Management** - Clearer "New Session" button with proper labeling
+- **Enhanced Refresh** - Better cache-busting for scan history updates
+
+### Version 1.0
 - Complete scan and analysis workflow
 - Change plan creation and management
 - Validation and deployment with selected components
