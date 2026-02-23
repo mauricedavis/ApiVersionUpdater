@@ -16,6 +16,10 @@ export default class StatusSummaryCard extends LightningElement {
     @api hasBackup = false;
     @api currentStep = 0;
 
+    get targetVersion() {
+        return this.targetApiVersion || '56.0';
+    }
+
     get hasScan() {
         return this.session?.currentScanId || this.scanName;
     }

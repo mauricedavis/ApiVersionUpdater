@@ -286,6 +286,22 @@
     color: var(--slds-g-color-neutral-base-40, #706e6b);
 }
 
+.target-api-badge {
+    margin-bottom: 0.5rem;
+}
+
+.target-badge {
+    display: inline-block;
+    background: linear-gradient(135deg, #0176d3, #032d60);
+    color: white;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    padding: 0.25rem 0.625rem;
+    border-radius: 0.25rem;
+    text-transform: uppercase;
+    letter-spacing: 0.025rem;
+}
+
 @media (max-width: 1200px) {
     .status-card {
         min-height: 180px;
