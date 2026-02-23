@@ -8,6 +8,8 @@ public with sharing class CodeRefactorService {
         @AuraEnabled public String previewHtml;
         @AuraEnabled public List<String> changes;
         @AuraEnabled public String deploymentId;
+        @AuraEnabled public String classId;
+        @AuraEnabled public String className;
     }
     
     public class CodeAnalysis {
@@ -68,6 +70,9 @@ public with sharing class CodeRefactorService {
                 result.message = 'Class not found in org: ' + className + '. Please verify the class name.';
                 return result;
             }
+            
+            result.classId = existingClasses[0].Id;
+            result.className = className;
             
             String classBody = getApexClassBody(className);
             if (String.isBlank(classBody)) {

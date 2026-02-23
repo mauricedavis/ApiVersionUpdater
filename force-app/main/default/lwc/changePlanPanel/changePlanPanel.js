@@ -581,13 +581,20 @@ User u = new User(Username = uniqueValue + '@test.com', ...);`
         }
         
         const baseUrl = window.location.origin;
-        const classEditUrl = `${baseUrl}/lightning/setup/ApexClasses/home`;
+        const classId = this.refactorPreview?.classId;
+        
+        let classEditUrl;
+        if (classId) {
+            classEditUrl = `${baseUrl}/${classId}`;
+        } else {
+            classEditUrl = `${baseUrl}/lightning/setup/ApexClasses/home`;
+        }
         
         window.open(classEditUrl, '_blank');
         
         this.dispatchEvent(new ShowToastEvent({
-            title: 'Setup Opened',
-            message: `Find "${this.selectedComponentForFix}" in the list, click Edit, select all code (Ctrl+A), paste (Ctrl+V), and Save.`,
+            title: 'Class Opened',
+            message: `Click "Edit" on the class, select all code (Ctrl+A), paste (Ctrl+V), and Save.`,
             variant: 'info',
             mode: 'sticky'
         }));
