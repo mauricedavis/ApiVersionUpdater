@@ -358,6 +358,7 @@ public with sharing class DeploymentService {
             
             List<ChangeItem__c> itemsToProcess;
             
+            // Only process explicitly selected items - never fall back to all items
             if (selectedItemIds != null && !selectedItemIds.isEmpty()) {
                 itemsToProcess = [
                     SELECT Id, ArtifactType__c, FullName__c, CurrentApiVersion__c, 
@@ -368,14 +369,8 @@ public with sharing class DeploymentService {
                     ORDER BY UnitNumber__c
                 ];
             } else {
-                itemsToProcess = [
-                    SELECT Id, ArtifactType__c, FullName__c, CurrentApiVersion__c, 
-                           TargetApiVersion__c, ApplyStatus__c
-                    FROM ChangeItem__c
-                    WHERE ChangePlan__c = :planId
-                    AND Eligibility__c = 'Eligible'
-                    ORDER BY UnitNumber__c
-                ];
+                // No items selected - complete without processing
+                itemsToProcess = new List<ChangeItem__c>();
             }
             
             if (itemsToProcess.isEmpty()) {

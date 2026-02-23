@@ -711,23 +711,33 @@ export default class ApiVersionUpdater extends LightningElement {
             testLevel
         });
 
-        if (createBackup && (!selectedIds || selectedIds.length === 0)) {
-            this.showToast('Error', 'No items selected for backup. Please select and validate items first.', 'error');
+        // Always require selected items for deployment
+        if (!selectedIds || selectedIds.length === 0) {
+            this.showToast('Error', 'No items selected. Please select and validate items first.', 'error');
             return;
         }
+
+        console.log('handleExecutePlan - proceeding with:', {
+            planId,
+            selectedIdsCount: selectedIds.length,
+            selectedIds: selectedIds,
+            createBackup,
+            testLevel
+        });
 
         try {
             this.isLoading = true;
             
             // Reset plan if it's in Failed status from a previous attempt
             if (this.changePlan?.status === 'Failed') {
+                console.log('Resetting failed plan before deployment');
                 await resetPlanForRetry({ planId });
             }
             
             const runId = await executePlanWithBackup({ 
                 planId, 
                 createBackup: createBackup || false,
-                selectedItemIds: selectedIds || [],
+                selectedItemIds: selectedIds,
                 testLevel: testLevel || 'NoTestRun'
             });
             
