@@ -1,4 +1,5 @@
 import { LightningElement, api, track } from 'lwc';
+import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import getDeploymentRunDetails from '@salesforce/apex/ApiVersionUpdaterController.getDeploymentRunDetails';
 import getDeploymentErrorsForPlan from '@salesforce/apex/ApiVersionUpdaterController.getDeploymentErrorsForPlan';
 import resetPlanForRetry from '@salesforce/apex/ApiVersionUpdaterController.resetPlanForRetry';
@@ -19,6 +20,7 @@ export default class ChangePlanPanel extends LightningElement {
     @track createBackupBeforeDeploy = true;
     @track showDeployConfirmation = false;
     @track deploymentError = null;
+    @track showFailedDetails = false;
     _errorLoadAttempted = false;
 
     eligibilityOptions = [
@@ -350,6 +352,58 @@ export default class ChangePlanPanel extends LightningElement {
 
     get hasFailedItemsCount() {
         return this.failedItemsCount > 0;
+    }
+
+    get failureTypeLabel() {
+        if (this.changePlan?.status === 'Failed') {
+            if (this.failedItems.some(item => item.validationStatus === 'Failed')) {
+                return 'Validation Failed';
+            }
+            return 'Deployment Failed';
+        }
+        return 'Operation Failed';
+    }
+
+    get failedDetailsIcon() {
+        return this.showFailedDetails ? 'utility:chevrondown' : 'utility:chevronright';
+    }
+
+    get failedItemsWithErrors() {
+        return this.failedItems.map(item => ({
+            ...item,
+            errorDetails: item.errorDetails || item.notes || 'Unknown error - check component in Setup'
+        }));
+    }
+
+    handleToggleFailedDetails() {
+        this.showFailedDetails = !this.showFailedDetails;
+    }
+
+    handleRetryValidation() {
+        this.deploymentError = null;
+        this.showFailedDetails = false;
+        this.validationComplete = false;
+        this.validationResults = null;
+        
+        this.dispatchEvent(new CustomEvent('retryvalidation', {
+            detail: { planId: this.changePlan.id }
+        }));
+        
+        this.handleValidate();
+    }
+
+    handleExcludeFailed() {
+        const failedIds = new Set(this.failedItems.map(item => item.id));
+        this.selectedItemIds = this.selectedItemIds.filter(id => !failedIds.has(id));
+        
+        this.deploymentError = null;
+        this.showFailedDetails = false;
+        
+        this.dispatchEvent(new ShowToastEvent({
+            title: 'Items Excluded',
+            message: `${failedIds.size} failed item(s) have been deselected. You can now retry validation.`,
+            variant: 'info'
+        }));
     }
 
     handleShowFailed() {
