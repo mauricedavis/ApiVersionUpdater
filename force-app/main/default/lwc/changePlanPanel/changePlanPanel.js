@@ -190,48 +190,200 @@ export default class ChangePlanPanel extends LightningElement {
         const patterns = {
             'CALLOUT_AFTER_DML': {
                 title: 'Callout After DML Error',
-                description: 'A test is performing DML operations (insert/update/delete) and then making a callout (HTTP request). Salesforce requires DML to be committed before callouts.',
-                quickFix: 'Retry deployment with "No Tests" to skip this test',
-                codeFix: 'In the test class, wrap the callout in Test.startTest()/Test.stopTest() or use Test.setMock() to mock the callout.',
-                canQuickFix: true
+                description: 'This class performs DML operations (insert/update/delete) and then makes a callout (HTTP request) in the same transaction. Salesforce requires all DML to be committed before any callouts can be made.',
+                quickFix: 'Retry deployment with "No Tests" to skip test execution',
+                codeFix: 'Refactor the code to separate DML from callouts.',
+                canQuickFix: true,
+                steps: [
+                    'Open the affected Apex class (click the link below)',
+                    'Find where the callout is made (look for Http.send(), HttpRequest, or external service calls)',
+                    'Find any DML operations (insert, update, delete, upsert) that happen BEFORE the callout',
+                    'Choose one of the fix options below to restructure the code'
+                ],
+                fixOptions: [
+                    {
+                        title: 'Option 1: Move callout to a @future method',
+                        description: 'Best for: When the callout result is not needed immediately',
+                        code: `// Before the problematic pattern:
+// insert myRecord;
+// HttpResponse res = http.send(req); // ERROR!
+
+// After - move callout to async method:
+insert myRecord;
+MyCalloutClass.makeCalloutAsync(myRecord.Id);
+
+// In a separate class or method:
+@future(callout=true)
+public static void makeCalloutAsync(Id recordId) {
+    HttpRequest req = new HttpRequest();
+    // ... setup request
+    Http http = new Http();
+    HttpResponse res = http.send(req);
+}`
+                    },
+                    {
+                        title: 'Option 2: Use Queueable for more control',
+                        description: 'Best for: When you need to chain operations or handle complex logic',
+                        code: `// Enqueue the callout work
+insert myRecord;
+System.enqueueJob(new MyCalloutQueueable(myRecord.Id));
+
+// Queueable class:
+public class MyCalloutQueueable implements Queueable, Database.AllowsCallouts {
+    private Id recordId;
+    
+    public MyCalloutQueueable(Id recordId) {
+        this.recordId = recordId;
+    }
+    
+    public void execute(QueueableContext context) {
+        HttpRequest req = new HttpRequest();
+        // ... make callout here
+        Http http = new Http();
+        HttpResponse res = http.send(req);
+    }
+}`
+                    },
+                    {
+                        title: 'Option 3: Reorder operations (callout first)',
+                        description: 'Best for: When you can make the callout before any DML',
+                        code: `// Move callout BEFORE any DML:
+HttpRequest req = new HttpRequest();
+// ... setup request
+Http http = new Http();
+HttpResponse res = http.send(req); // Callout first
+
+// Now do DML after callout completes:
+insert myRecord;
+update anotherRecord;`
+                    }
+                ]
             },
             'MIXED_DML': {
                 title: 'Mixed DML Operation Error',
-                description: 'The code is mixing DML on setup objects (User, Profile, etc.) with standard objects in the same transaction.',
-                quickFix: 'Retry deployment with "No Tests" to skip this test',
-                codeFix: 'Use System.runAs() to separate setup object DML from standard object DML in your test.',
-                canQuickFix: true
+                description: 'The code is mixing DML on setup objects (User, Profile, PermissionSet, etc.) with standard objects in the same transaction.',
+                quickFix: 'Retry deployment with "No Tests" to skip test execution',
+                codeFix: 'Use System.runAs() to separate setup object DML from standard object DML.',
+                canQuickFix: true,
+                steps: [
+                    'Open the affected Apex class',
+                    'Find where setup objects (User, Profile, etc.) are being inserted/updated',
+                    'Find where standard objects are being modified in the same transaction',
+                    'Separate them using System.runAs() or @future'
+                ],
+                fixOptions: [
+                    {
+                        title: 'Use System.runAs() in tests',
+                        description: 'Separates DML contexts in test methods',
+                        code: `// Insert setup object first
+User testUser = new User(...);
+insert testUser;
+
+// Use System.runAs to create new DML context
+System.runAs(testUser) {
+    Account acc = new Account(Name = 'Test');
+    insert acc;
+}`
+                    }
+                ]
             },
             'VALIDATION_RULE': {
                 title: 'Validation Rule Error',
                 description: 'A validation rule is blocking the data changes. The test data may not meet the validation criteria.',
                 quickFix: null,
                 codeFix: 'Update the test data to satisfy the validation rule, or deactivate the rule temporarily.',
-                canQuickFix: false
+                canQuickFix: false,
+                steps: [
+                    'Check the error message for the validation rule name',
+                    'Navigate to Setup → Object Manager → [Object] → Validation Rules',
+                    'Review the rule criteria',
+                    'Update your test data to satisfy the rule'
+                ],
+                fixOptions: []
             },
             'REQUIRED_FIELD': {
                 title: 'Required Field Missing',
                 description: 'A required field is not populated in the test data.',
                 quickFix: null,
                 codeFix: 'Update the test class to populate all required fields on the test records.',
-                canQuickFix: false
+                canQuickFix: false,
+                steps: [
+                    'Check the error message for the missing field name',
+                    'Open the test class',
+                    'Add the required field value to the test record creation'
+                ],
+                fixOptions: []
             },
             'DUPLICATE': {
                 title: 'Duplicate Value Error',
                 description: 'The test is trying to create a record with a value that already exists and must be unique.',
                 quickFix: null,
                 codeFix: 'Use unique values in your test data, such as adding random strings or timestamps.',
-                canQuickFix: false
+                canQuickFix: false,
+                steps: [
+                    'Check the error for which field has the duplicate',
+                    'Update your test to use unique values'
+                ],
+                fixOptions: [
+                    {
+                        title: 'Generate unique values',
+                        description: 'Use timestamp or random strings',
+                        code: `String uniqueValue = 'Test_' + DateTime.now().getTime();
+User u = new User(Username = uniqueValue + '@test.com', ...);`
+                    }
+                ]
             },
             'GOVERNOR_LIMIT': {
                 title: 'Governor Limit Exceeded',
                 description: 'The code exceeded a Salesforce governor limit (e.g., too many SOQL queries, DML statements, or CPU time).',
                 quickFix: null,
                 codeFix: 'Optimize the code to reduce SOQL queries, bulkify DML operations, or reduce processing.',
-                canQuickFix: false
+                canQuickFix: false,
+                steps: [
+                    'Check the specific limit mentioned in the error',
+                    'Review the code for SOQL queries inside loops',
+                    'Bulkify DML operations',
+                    'Consider using Batch Apex for large data volumes'
+                ],
+                fixOptions: []
             }
         };
         return patterns[this.detectedErrorPattern] || null;
+    }
+
+    get affectedComponents() {
+        return this.failedItems.map(item => ({
+            id: item.id,
+            name: item.fullName,
+            type: item.artifactType,
+            error: item.errorDetails,
+            setupUrl: this.getSetupUrl(item.artifactType, item.fullName)
+        }));
+    }
+
+    getSetupUrl(artifactType, fullName) {
+        const baseUrl = window.location.origin;
+        const encodedName = encodeURIComponent(fullName);
+        
+        switch (artifactType) {
+            case 'ApexClass':
+                return `${baseUrl}/lightning/setup/ApexClasses/home`;
+            case 'ApexTrigger':
+                return `${baseUrl}/lightning/setup/ApexTriggers/home`;
+            case 'ApexPage':
+                return `${baseUrl}/lightning/setup/ApexPages/home`;
+            case 'ApexComponent':
+                return `${baseUrl}/lightning/setup/ApexComponents/home`;
+            default:
+                return `${baseUrl}/lightning/setup/SetupOneHome/home`;
+        }
+    }
+
+    handleOpenComponent(event) {
+        const url = event.currentTarget.dataset.url;
+        if (url) {
+            window.open(url, '_blank');
+        }
     }
 
     get showQuickFixOption() {

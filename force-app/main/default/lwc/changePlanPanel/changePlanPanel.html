@@ -147,12 +147,64 @@
                                             </div>
                                             <p class="smart-guidance-description">{errorPatternGuidance.description}</p>
                                             
+                                            <!-- Affected Components with Links -->
+                                            <div class="affected-components slds-m-top_small">
+                                                <h5 class="section-label">Affected Components:</h5>
+                                                <template for:each={affectedComponents} for:item="comp">
+                                                    <div key={comp.id} class="affected-component-item">
+                                                        <lightning-icon icon-name="utility:apex" size="xx-small" class="component-icon"></lightning-icon>
+                                                        <span class="component-name">{comp.name}</span>
+                                                        <span class="component-type">({comp.type})</span>
+                                                        <lightning-button
+                                                            variant="base"
+                                                            label="Open in Setup"
+                                                            icon-name="utility:new_window"
+                                                            icon-position="right"
+                                                            data-url={comp.setupUrl}
+                                                            onclick={handleOpenComponent}
+                                                            class="open-component-btn">
+                                                        </lightning-button>
+                                                    </div>
+                                                </template>
+                                            </div>
+                                            
+                                            <!-- Step-by-Step Instructions -->
+                                            <div class="fix-steps slds-m-top_small">
+                                                <h5 class="section-label">How to Fix:</h5>
+                                                <ol class="steps-list">
+                                                    <template for:each={errorPatternGuidance.steps} for:item="step">
+                                                        <li key={step}>{step}</li>
+                                                    </template>
+                                                </ol>
+                                            </div>
+                                            
+                                            <!-- Code Fix Options -->
+                                            <template lwc:if={errorPatternGuidance.fixOptions.length}>
+                                                <div class="fix-options slds-m-top_small">
+                                                    <h5 class="section-label">Code Fix Options:</h5>
+                                                    <template for:each={errorPatternGuidance.fixOptions} for:item="option">
+                                                        <div key={option.title} class="fix-option-card">
+                                                            <div class="fix-option-header">
+                                                                <lightning-icon icon-name="utility:toggle_panel_right" size="xx-small"></lightning-icon>
+                                                                <strong>{option.title}</strong>
+                                                            </div>
+                                                            <p class="fix-option-description">{option.description}</p>
+                                                            <div class="code-block">
+                                                                <pre><code>{option.code}</code></pre>
+                                                            </div>
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                            </template>
+                                            
+                                            <!-- Quick Fix Option -->
                                             <template lwc:if={showQuickFixOption}>
-                                                <div class="quick-fix-box">
+                                                <div class="quick-fix-box slds-m-top_medium">
                                                     <div class="quick-fix-content">
                                                         <lightning-icon icon-name="utility:sparkles" size="x-small" class="quick-fix-icon"></lightning-icon>
                                                         <div>
                                                             <strong>Quick Fix Available:</strong> {errorPatternGuidance.quickFix}
+                                                            <p class="quick-fix-note">Note: This deploys without running tests. The underlying code issue will still need to be fixed for full test coverage.</p>
                                                         </div>
                                                     </div>
                                                     <lightning-button
@@ -164,11 +216,6 @@
                                                     </lightning-button>
                                                 </div>
                                             </template>
-                                            
-                                            <div class="code-fix-section slds-m-top_small">
-                                                <strong>Permanent Fix:</strong>
-                                                <p class="code-fix-text">{errorPatternGuidance.codeFix}</p>
-                                            </div>
                                         </div>
                                     </template>
                                     
