@@ -37,7 +37,7 @@ export default class StatusSummaryCard extends LightningElement {
     }
 
     get displayScanName() {
-        return this.session?.currentScanName || this.scanName || '';
+        return this.scanName || this.session?.currentScanName || '';
     }
 
     get displayScanStatus() {
@@ -45,19 +45,19 @@ export default class StatusSummaryCard extends LightningElement {
     }
 
     get displayPlanName() {
-        return this.session?.currentChangePlanName || this.planName || '';
+        return this.planName || this.session?.currentChangePlanName || '';
     }
 
     get displayPlanStatus() {
-        return this.session?.currentChangePlanStatus || this.planStatus || '-';
+        return this.planStatus || this.session?.currentChangePlanStatus || '-';
     }
 
     get displayPlanItemCount() {
-        return this.session?.currentChangePlanItemCount || this.planItemCount || 0;
+        return this.planItemCount || this.session?.currentChangePlanItemCount || 0;
     }
 
     get displayDeploymentStatus() {
-        return this.session?.currentDeploymentRunStatus || this.deploymentStatus || '-';
+        return this.deploymentStatus || this.session?.currentDeploymentRunStatus || '-';
     }
 
     get isScanRunning() {
