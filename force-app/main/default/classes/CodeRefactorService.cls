@@ -497,4 +497,73 @@ public with sharing class CodeRefactorService {
         public Integer startLine;
         public Integer endLine;
     }
+    
+    @AuraEnabled
+    public static Map<String, Object> cleanupOrphanedContainers() {
+        Map<String, Object> result = new Map<String, Object>();
+        Integer deletedCount = 0;
+        List<String> errors = new List<String>();
+        
+        try {
+            String endpoint = URL.getOrgDomainUrl().toExternalForm() + 
+                '/services/data/v65.0/tooling/query/?q=' +
+                EncodingUtil.urlEncode('SELECT Id, Name FROM MetadataContainer WHERE Name LIKE \'RefactorContainer_%\'', 'UTF-8');
+            
+            HttpRequest req = new HttpRequest();
+            req.setEndpoint(endpoint);
+            req.setMethod('GET');
+            req.setHeader('Authorization', 'Bearer ' + UserInfo.getSessionId());
+            req.setHeader('Content-Type', 'application/json');
+            
+            Http http = new Http();
+            HttpResponse res = http.send(req);
+            
+            if (res.getStatusCode() == 200) {
+                Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(res.getBody());
+                List<Object> records = (List<Object>) response.get('records');
+                
+                for (Object record : records) {
+                    Map<String, Object> container = (Map<String, Object>) record;
+                    String containerId = (String) container.get('Id');
+                    
+                    try {
+                        deleteContainer(containerId);
+                        deletedCount++;
+                    } catch (Exception e) {
+                        errors.add('Failed to delete ' + containerId + ': ' + e.getMessage());
+                    }
+                }
+            }
+            
+            result.put('success', true);
+            result.put('deletedCount', deletedCount);
+            result.put('message', 'Cleaned up ' + deletedCount + ' orphaned container(s)');
+            if (!errors.isEmpty()) {
+                result.put('errors', errors);
+            }
+            
+        } catch (Exception e) {
+            result.put('success', false);
+            result.put('message', 'Cleanup failed: ' + e.getMessage());
+        }
+        
+        return result;
+    }
+    
+    private static void deleteContainer(String containerId) {
+        String endpoint = URL.getOrgDomainUrl().toExternalForm() + 
+            '/services/data/v65.0/tooling/sobjects/MetadataContainer/' + containerId;
+        
+        HttpRequest req = new HttpRequest();
+        req.setEndpoint(endpoint);
+        req.setMethod('DELETE');
+        req.setHeader('Authorization', 'Bearer ' + UserInfo.getSessionId());
+        
+        Http http = new Http();
+        HttpResponse res = http.send(req);
+        
+        if (res.getStatusCode() != 204 && res.getStatusCode() != 200) {
+            throw new AuraHandledException('Delete failed: ' + res.getBody());
+        }
+    }
 }

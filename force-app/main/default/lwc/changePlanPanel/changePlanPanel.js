@@ -6,6 +6,7 @@ import resetPlanForRetry from '@salesforce/apex/ApiVersionUpdaterController.rese
 import analyzeClassForRefactor from '@salesforce/apex/ApiVersionUpdaterController.analyzeClassForRefactor';
 import previewRefactor from '@salesforce/apex/ApiVersionUpdaterController.previewRefactor';
 import applyRefactor from '@salesforce/apex/ApiVersionUpdaterController.applyRefactor';
+import cleanupOrphanedContainers from '@salesforce/apex/ApiVersionUpdaterController.cleanupOrphanedContainers';
 
 export default class ChangePlanPanel extends LightningElement {
     @api changePlan = {};
@@ -547,6 +548,46 @@ User u = new User(Username = uniqueValue + '@test.com', ...);`
 
     get hasRefactorError() {
         return this.refactorPreview && this.refactorPreview.success === false;
+    }
+
+    get hasUncommittedWorkError() {
+        const errorText = this.deploymentError || '';
+        const itemErrors = this.failedItems.map(i => i.errorDetails || '').join(' ');
+        const allErrors = errorText + ' ' + itemErrors;
+        return allErrors.toLowerCase().includes('uncommitted work pending') || 
+               allErrors.toLowerCase().includes('commit or rollback before calling out');
+    }
+
+    async handleCleanupContainers() {
+        try {
+            this.dispatchEvent(new ShowToastEvent({
+                title: 'Cleaning Up',
+                message: 'Removing orphaned metadata containers...',
+                variant: 'info'
+            }));
+            
+            const result = await cleanupOrphanedContainers();
+            
+            if (result.success) {
+                this.dispatchEvent(new ShowToastEvent({
+                    title: 'Cleanup Complete',
+                    message: result.message + '. You can now retry the deployment.',
+                    variant: 'success'
+                }));
+            } else {
+                this.dispatchEvent(new ShowToastEvent({
+                    title: 'Cleanup Issue',
+                    message: result.message,
+                    variant: 'warning'
+                }));
+            }
+        } catch (error) {
+            this.dispatchEvent(new ShowToastEvent({
+                title: 'Error',
+                message: error.body?.message || error.message || 'Failed to cleanup containers',
+                variant: 'error'
+            }));
+        }
     }
 
     handleCopyRefactoredCode() {

@@ -259,6 +259,15 @@
                                                 class="slds-m-right_small">
                                             </lightning-button>
                                         </template>
+                                        <template lwc:if={hasUncommittedWorkError}>
+                                            <lightning-button 
+                                                variant="brand-outline"
+                                                label="Cleanup Stuck Containers"
+                                                icon-name="utility:delete"
+                                                onclick={handleCleanupContainers}
+                                                class="slds-m-right_small">
+                                            </lightning-button>
+                                        </template>
                                         <template lwc:if={canResetPlan}>
                                             <lightning-button 
                                                 variant="destructive-text"

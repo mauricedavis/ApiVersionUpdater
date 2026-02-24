@@ -411,4 +411,9 @@ public with sharing class ApiVersionUpdaterController {
     public static CodeRefactorService.RefactorResult applyRefactor(String className, String fixOption) {
         return CodeRefactorService.applyRefactor(className, fixOption);
     }
+    
+    @AuraEnabled
+    public static Map<String, Object> cleanupOrphanedContainers() {
+        return CodeRefactorService.cleanupOrphanedContainers();
+    }
 }
