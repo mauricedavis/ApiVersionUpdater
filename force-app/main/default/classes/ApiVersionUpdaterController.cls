@@ -129,6 +129,11 @@ public with sharing class ApiVersionUpdaterController {
     }
     
     @AuraEnabled
+    public static String executePlanWithOptions(String planId, Boolean createBackup, List<String> selectedItemIds, String testLevel, Boolean validateOnly) {
+        return DeploymentService.executePlanWithOptions(planId, createBackup, selectedItemIds, testLevel, validateOnly);
+    }
+    
+    @AuraEnabled
     public static void resetPlanForRetry(String planId) {
         DeploymentService.resetPlanForRetry(planId);
     }

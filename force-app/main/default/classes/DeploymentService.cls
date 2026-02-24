@@ -192,6 +192,11 @@ public with sharing class DeploymentService {
     
     @AuraEnabled
     public static String executePlanWithBackup(String planId, Boolean createBackup, List<String> selectedItemIds, String testLevel) {
+        return executePlanWithOptions(planId, createBackup, selectedItemIds, testLevel, null);
+    }
+    
+    @AuraEnabled
+    public static String executePlanWithOptions(String planId, Boolean createBackup, List<String> selectedItemIds, String testLevel, Boolean validateOnlyOverride) {
         ChangePlan__c plan = [
             SELECT Id, Status__c, ValidationMode__c, TestPolicy__c, TargetApiVersion__c
             FROM ChangePlan__c 
@@ -202,7 +207,17 @@ public with sharing class DeploymentService {
             throw new AuraHandledException('Plan cannot be executed in status: ' + plan.Status__c);
         }
         
-        Boolean validateOnly = plan.ValidationMode__c == 'ValidateOnly';
+        Boolean validateOnly;
+        if (validateOnlyOverride != null) {
+            validateOnly = validateOnlyOverride;
+            if (plan.ValidationMode__c != (validateOnly ? 'ValidateOnly' : 'Deploy')) {
+                plan.ValidationMode__c = validateOnly ? 'ValidateOnly' : 'Deploy';
+                update plan;
+            }
+        } else {
+            validateOnly = plan.ValidationMode__c == 'ValidateOnly';
+        }
+        
         String effectiveTestLevel = String.isBlank(testLevel) ? 'NoTestRun' : testLevel;
         
         DeploymentRun__c run = new DeploymentRun__c(
@@ -350,6 +365,10 @@ public with sharing class DeploymentService {
             Boolean isValidateOnly = planRecord.ValidationMode__c == 'ValidateOnly';
             Decimal targetVersion = Decimal.valueOf(planRecord.TargetApiVersion__c);
             
+            System.debug('Processing Deployment - ValidationMode: ' + planRecord.ValidationMode__c + 
+                        ', IsValidateOnly: ' + isValidateOnly + 
+                        ', TargetVersion: ' + targetVersion);
+            
             List<ChangeItem__c> itemsToProcess;
             
             // Only process explicitly selected items - never fall back to all items
@@ -479,7 +498,10 @@ public with sharing class DeploymentService {
             Map<String, Object> resultsMap = new Map<String, Object>{
                 'successCount' => successCount,
                 'failCount' => failCount,
-                'totalProcessed' => itemsToProcess.size()
+                'totalProcessed' => itemsToProcess.size(),
+                'validationMode' => planRecord.ValidationMode__c,
+                'wasValidateOnly' => isValidateOnly,
+                'targetApiVersion' => targetVersion
             };
             
             if (!errorMessages.isEmpty()) {
@@ -545,11 +567,15 @@ public with sharing class DeploymentService {
             
             String currentBody = getComponentBody(artifactType, fullName);
             
+            if (String.isBlank(currentBody)) {
+                throw new AuraHandledException('Could not retrieve body for: ' + fullName);
+            }
+            
             String endpoint = URL.getOrgDomainUrl().toExternalForm() + 
                 '/services/data/v65.0/tooling/sobjects/' + memberType;
             
             Map<String, Object> metadata = new Map<String, Object>{
-                'apiVersion' => targetVersion,
+                'apiVersion' => Double.valueOf(targetVersion),
                 'status' => 'Active'
             };
             
@@ -570,9 +596,11 @@ public with sharing class DeploymentService {
             Http http = new Http();
             HttpResponse res = http.send(req);
             
+            System.debug('AddMember Response: ' + res.getStatusCode() + ' - ' + res.getBody());
+            
             if (res.getStatusCode() != 201) {
                 String errorMsg = parseErrorMessage(res.getBody());
-                throw new AuraHandledException(errorMsg);
+                throw new AuraHandledException('Add member failed (' + res.getStatusCode() + '): ' + errorMsg);
             }
         }
         
@@ -605,6 +633,8 @@ public with sharing class DeploymentService {
             
             Boolean runTests = testLevelParam != 'NoTestRun';
             
+            System.debug('DeployContainer - IsCheckOnly: ' + isCheckOnly + ', RunTests: ' + runTests);
+            
             Map<String, Object> asyncRequest = new Map<String, Object>{
                 'MetadataContainerId' => containerId,
                 'IsCheckOnly' => isCheckOnly,
@@ -621,12 +651,14 @@ public with sharing class DeploymentService {
             Http http = new Http();
             HttpResponse res = http.send(req);
             
+            System.debug('DeployContainer Response: ' + res.getStatusCode() + ' - ' + res.getBody());
+            
             if (res.getStatusCode() == 201) {
                 Map<String, Object> result = (Map<String, Object>) JSON.deserializeUntyped(res.getBody());
                 return (String) result.get('id');
             }
             
-            throw new AuraHandledException('Failed to deploy container: ' + res.getBody());
+            throw new AuraHandledException('Failed to deploy container (' + res.getStatusCode() + '): ' + res.getBody());
         }
         
         private String pollForCompletion(String asyncRequestId) {

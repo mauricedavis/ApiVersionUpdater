@@ -20,6 +20,7 @@ import createChangePlan from '@salesforce/apex/ApiVersionUpdaterController.creat
 import getChangePlan from '@salesforce/apex/ApiVersionUpdaterController.getChangePlan';
 import getChangeItems from '@salesforce/apex/ApiVersionUpdaterController.getChangeItems';
 import executePlanWithBackup from '@salesforce/apex/ApiVersionUpdaterController.executePlanWithBackup';
+import executePlanWithOptions from '@salesforce/apex/ApiVersionUpdaterController.executePlanWithOptions';
 import resetPlanForRetry from '@salesforce/apex/ApiVersionUpdaterController.resetPlanForRetry';
 import getCurrentSession from '@salesforce/apex/ApiVersionUpdaterController.getCurrentSession';
 import updateSessionScan from '@salesforce/apex/ApiVersionUpdaterController.updateSessionScan';
@@ -733,14 +734,15 @@ export default class ApiVersionUpdater extends LightningElement {
             console.log('Resetting plan before deployment to ensure clean state');
             await resetPlanForRetry({ planId });
             
-            const runId = await executePlanWithBackup({ 
+            const runId = await executePlanWithOptions({ 
                 planId, 
                 createBackup: createBackup || false,
                 selectedItemIds: selectedIds,
-                testLevel: testLevel || 'NoTestRun'
+                testLevel: testLevel || 'NoTestRun',
+                validateOnly: false
             });
             
-            console.log('executePlanWithBackup returned runId:', runId);
+            console.log('executePlanWithOptions returned runId:', runId);
             
             this.currentDeploymentRunId = runId;
             this.hasBackup = createBackup;
@@ -828,11 +830,12 @@ export default class ApiVersionUpdater extends LightningElement {
                 // First, reset the plan to clear Failed status
                 await resetPlanForRetry({ planId });
                 
-                const runId = await executePlanWithBackup({ 
+                const runId = await executePlanWithOptions({ 
                     planId, 
                     createBackup: true,
                     selectedItemIds: itemsToDeployIds,
-                    testLevel: 'NoTestRun'
+                    testLevel: 'NoTestRun',
+                    validateOnly: false
                 });
                 
                 this.currentDeploymentRunId = runId;
