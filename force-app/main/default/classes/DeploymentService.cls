@@ -457,8 +457,20 @@ public with sharing class DeploymentService {
                         
                         if (status == 'Completed') {
                             for (ChangeItem__c item : pendingItems) {
-                                item.ApplyStatus__c = 'Applied';
-                                successCount++;
+                                Decimal actualVersion = verifyClassApiVersion(item.FullName__c);
+                                if (actualVersion != null && actualVersion == targetVersion) {
+                                    item.ApplyStatus__c = 'Applied';
+                                    successCount++;
+                                } else if (actualVersion != null) {
+                                    item.ApplyStatus__c = 'Failed';
+                                    item.ErrorDetails__c = 'Deployment reported success but API version is still ' + actualVersion + ' (expected ' + targetVersion + ')';
+                                    failCount++;
+                                    errorMessages.add(item.FullName__c + ': Version not updated - still at ' + actualVersion);
+                                } else {
+                                    item.ApplyStatus__c = 'Applied';
+                                    item.ErrorDetails__c = 'Could not verify API version after deployment';
+                                    successCount++;
+                                }
                             }
                         } else if (status == 'Failed' || status == 'Error') {
                             String errorDetail = getContainerErrorDetails(asyncRequestId);
@@ -792,6 +804,36 @@ public with sharing class DeploymentService {
                     return '';
                 }
             }
+        }
+        
+        private Decimal verifyClassApiVersion(String className) {
+            String endpoint = URL.getOrgDomainUrl().toExternalForm() + 
+                '/services/data/v65.0/tooling/query/?q=' +
+                EncodingUtil.urlEncode('SELECT ApiVersion FROM ApexClass WHERE Name = \'' + className + '\' LIMIT 1', 'UTF-8');
+            
+            HttpRequest req = new HttpRequest();
+            req.setEndpoint(endpoint);
+            req.setMethod('GET');
+            req.setHeader('Authorization', 'Bearer ' + UserInfo.getSessionId());
+            req.setHeader('Content-Type', 'application/json');
+            
+            Http http = new Http();
+            HttpResponse res = http.send(req);
+            
+            System.debug('VerifyApiVersion for ' + className + ': ' + res.getStatusCode() + ' - ' + res.getBody());
+            
+            if (res.getStatusCode() == 200) {
+                Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(res.getBody());
+                List<Object> records = (List<Object>) response.get('records');
+                if (!records.isEmpty()) {
+                    Map<String, Object> record = (Map<String, Object>) records[0];
+                    Object apiVersion = record.get('ApiVersion');
+                    if (apiVersion != null) {
+                        return Decimal.valueOf(String.valueOf(apiVersion));
+                    }
+                }
+            }
+            return null;
         }
     }
 }
