@@ -41,7 +41,7 @@ export default class StatusSummaryCard extends LightningElement {
     }
 
     get displayScanStatus() {
-        return this.session?.currentScanStatus || this.scanStatus || '-';
+        return this.scanStatus || this.session?.currentScanStatus || '-';
     }
 
     get displayPlanName() {
