@@ -341,12 +341,6 @@ public with sharing class DeploymentService {
         }
         
         private void processDeployment() {
-            DeploymentRun__c run = new DeploymentRun__c(
-                Id = runId,
-                Status__c = 'Running'
-            );
-            update run;
-            
             ChangePlan__c planRecord = [
                 SELECT Id, TargetApiVersion__c, ValidationMode__c
                 FROM ChangePlan__c
@@ -373,16 +367,20 @@ public with sharing class DeploymentService {
                 itemsToProcess = new List<ChangeItem__c>();
             }
             
+            // Handle empty case - no callouts so DML is safe
             if (itemsToProcess.isEmpty()) {
-                run.Status__c = 'Completed';
-                run.FinishedAt__c = Datetime.now();
-                run.ResultsJson__c = JSON.serialize(new Map<String, Object>{
-                    'successCount' => 0,
-                    'failCount' => 0,
-                    'totalProcessed' => 0,
-                    'message' => 'No eligible items to process'
-                });
-                update run;
+                DeploymentRun__c emptyRun = new DeploymentRun__c(
+                    Id = runId,
+                    Status__c = 'Completed',
+                    FinishedAt__c = Datetime.now(),
+                    ResultsJson__c = JSON.serialize(new Map<String, Object>{
+                        'successCount' => 0,
+                        'failCount' => 0,
+                        'totalProcessed' => 0,
+                        'message' => 'No eligible items to process'
+                    })
+                );
+                update emptyRun;
                 return;
             }
             
@@ -473,12 +471,10 @@ public with sharing class DeploymentService {
                 }
             }
             
+            // ALL DML happens AFTER callouts to avoid "uncommitted work pending" error
             if (!itemsToProcess.isEmpty()) {
                 update itemsToProcess;
             }
-            
-            run.Status__c = failCount == 0 ? 'Completed' : 'Failed';
-            run.FinishedAt__c = Datetime.now();
             
             Map<String, Object> resultsMap = new Map<String, Object>{
                 'successCount' => successCount,
@@ -490,7 +486,12 @@ public with sharing class DeploymentService {
                 resultsMap.put('errors', errorMessages);
             }
             
-            run.ResultsJson__c = JSON.serialize(resultsMap);
+            DeploymentRun__c run = new DeploymentRun__c(
+                Id = runId,
+                Status__c = failCount == 0 ? 'Completed' : 'Failed',
+                FinishedAt__c = Datetime.now(),
+                ResultsJson__c = JSON.serialize(resultsMap)
+            );
             update run;
             
             ChangePlan__c plan = new ChangePlan__c(
