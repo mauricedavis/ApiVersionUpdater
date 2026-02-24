@@ -501,45 +501,57 @@ public with sharing class CodeRefactorService {
     @AuraEnabled
     public static Map<String, Object> cleanupOrphanedContainers() {
         Map<String, Object> result = new Map<String, Object>();
-        Integer deletedCount = 0;
+        Integer containersDeleted = 0;
+        Integer requestsAborted = 0;
         List<String> errors = new List<String>();
+        String baseUrl = URL.getOrgDomainUrl().toExternalForm();
+        String sessionId = UserInfo.getSessionId();
         
         try {
-            String endpoint = URL.getOrgDomainUrl().toExternalForm() + 
-                '/services/data/v65.0/tooling/query/?q=' +
-                EncodingUtil.urlEncode('SELECT Id, Name FROM MetadataContainer WHERE Name LIKE \'RefactorContainer_%\'', 'UTF-8');
+            List<Object> allContainers = queryTooling(baseUrl, sessionId, 
+                'SELECT Id, Name FROM MetadataContainer');
             
-            HttpRequest req = new HttpRequest();
-            req.setEndpoint(endpoint);
-            req.setMethod('GET');
-            req.setHeader('Authorization', 'Bearer ' + UserInfo.getSessionId());
-            req.setHeader('Content-Type', 'application/json');
-            
-            Http http = new Http();
-            HttpResponse res = http.send(req);
-            
-            if (res.getStatusCode() == 200) {
-                Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(res.getBody());
-                List<Object> records = (List<Object>) response.get('records');
+            for (Object record : allContainers) {
+                Map<String, Object> container = (Map<String, Object>) record;
+                String containerId = (String) container.get('Id');
+                String containerName = (String) container.get('Name');
                 
-                for (Object record : records) {
-                    Map<String, Object> container = (Map<String, Object>) record;
-                    String containerId = (String) container.get('Id');
-                    
-                    try {
-                        deleteContainer(containerId);
-                        deletedCount++;
-                    } catch (Exception e) {
-                        errors.add('Failed to delete ' + containerId + ': ' + e.getMessage());
-                    }
+                try {
+                    deleteToolingRecord(baseUrl, sessionId, 'MetadataContainer', containerId);
+                    containersDeleted++;
+                } catch (Exception e) {
+                    errors.add('Container ' + containerName + ': ' + e.getMessage());
+                }
+            }
+            
+            List<Object> stuckRequests = queryTooling(baseUrl, sessionId, 
+                'SELECT Id, State FROM ContainerAsyncRequest WHERE State IN (\'Queued\', \'Pending\', \'InProgress\')');
+            
+            for (Object record : stuckRequests) {
+                Map<String, Object> req = (Map<String, Object>) record;
+                String reqId = (String) req.get('Id');
+                
+                try {
+                    abortAsyncRequest(baseUrl, sessionId, reqId);
+                    requestsAborted++;
+                } catch (Exception e) {
+                    errors.add('AsyncRequest ' + reqId + ': ' + e.getMessage());
                 }
             }
             
             result.put('success', true);
-            result.put('deletedCount', deletedCount);
-            result.put('message', 'Cleaned up ' + deletedCount + ' orphaned container(s)');
+            result.put('containersDeleted', containersDeleted);
+            result.put('requestsAborted', requestsAborted);
+            
+            String msg = 'Cleaned up ' + containersDeleted + ' container(s)';
+            if (requestsAborted > 0) {
+                msg += ' and aborted ' + requestsAborted + ' pending request(s)';
+            }
+            result.put('message', msg);
+            
             if (!errors.isEmpty()) {
                 result.put('errors', errors);
+                result.put('message', msg + '. Some errors occurred - see details.');
             }
             
         } catch (Exception e) {
@@ -550,20 +562,63 @@ public with sharing class CodeRefactorService {
         return result;
     }
     
-    private static void deleteContainer(String containerId) {
-        String endpoint = URL.getOrgDomainUrl().toExternalForm() + 
-            '/services/data/v65.0/tooling/sobjects/MetadataContainer/' + containerId;
+    private static List<Object> queryTooling(String baseUrl, String sessionId, String query) {
+        String endpoint = baseUrl + '/services/data/v65.0/tooling/query/?q=' +
+            EncodingUtil.urlEncode(query, 'UTF-8');
+        
+        HttpRequest req = new HttpRequest();
+        req.setEndpoint(endpoint);
+        req.setMethod('GET');
+        req.setHeader('Authorization', 'Bearer ' + sessionId);
+        req.setHeader('Content-Type', 'application/json');
+        
+        Http http = new Http();
+        HttpResponse res = http.send(req);
+        
+        if (res.getStatusCode() == 200) {
+            Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(res.getBody());
+            return (List<Object>) response.get('records');
+        }
+        
+        return new List<Object>();
+    }
+    
+    private static void deleteToolingRecord(String baseUrl, String sessionId, String objectType, String recordId) {
+        String endpoint = baseUrl + '/services/data/v65.0/tooling/sobjects/' + objectType + '/' + recordId;
         
         HttpRequest req = new HttpRequest();
         req.setEndpoint(endpoint);
         req.setMethod('DELETE');
-        req.setHeader('Authorization', 'Bearer ' + UserInfo.getSessionId());
+        req.setHeader('Authorization', 'Bearer ' + sessionId);
         
         Http http = new Http();
         HttpResponse res = http.send(req);
         
         if (res.getStatusCode() != 204 && res.getStatusCode() != 200) {
-            throw new AuraHandledException('Delete failed: ' + res.getBody());
+            throw new AuraHandledException('Delete failed: ' + res.getStatusCode());
         }
     }
+    
+    private static void abortAsyncRequest(String baseUrl, String sessionId, String requestId) {
+        String endpoint = baseUrl + '/services/data/v65.0/tooling/sobjects/ContainerAsyncRequest/' + requestId;
+        
+        Map<String, Object> updateBody = new Map<String, Object>{
+            'State' => 'Aborted'
+        };
+        
+        HttpRequest req = new HttpRequest();
+        req.setEndpoint(endpoint);
+        req.setMethod('PATCH');
+        req.setHeader('Authorization', 'Bearer ' + sessionId);
+        req.setHeader('Content-Type', 'application/json');
+        req.setBody(JSON.serialize(updateBody));
+        
+        Http http = new Http();
+        HttpResponse res = http.send(req);
+        
+        if (res.getStatusCode() != 204 && res.getStatusCode() != 200 && res.getStatusCode() != 204) {
+            throw new AuraHandledException('Abort failed: ' + res.getStatusCode());
+        }
+    }
+    
 }
