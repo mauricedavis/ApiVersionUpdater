@@ -764,26 +764,28 @@ export default class ApiVersionUpdater extends LightningElement {
                 changePlanPanel.deploymentComplete();
             }
 
-            if (navigateToBackup && createBackup) {
-                setTimeout(() => {
-                    this.activeView = 'deploy';
-                    this.workflowStep = 4;
-                    this.updateCompletedSteps();
-                    this.showToast('Deployment Complete', 
-                        'Deployment successful. Backup created for restore if needed.', 
-                        'success');
-                    
-                    setTimeout(() => {
-                        const backupPanel = this.template.querySelector('c-backup-restore-panel');
-                        if (backupPanel) {
-                            backupPanel.refresh();
-                        }
-                    }, 100);
-                }, 1500);
-            } else {
+            const appliedCount = items.filter(i => i.applyStatus === 'Applied').length;
+            const failedCount = items.filter(i => i.applyStatus === 'Failed').length;
+            
+            this.activeView = 'deploy';
+            this.workflowStep = 4;
+            this.updateCompletedSteps();
+            
+            setTimeout(() => {
+                const backupPanel = this.template.querySelector('c-backup-restore-panel');
+                if (backupPanel) {
+                    backupPanel.deploymentComplete(appliedCount, failedCount);
+                }
+            }, 500);
+            
+            if (failedCount === 0) {
                 this.showToast('Deployment Complete', 
-                    `Successfully processed ${items.filter(i => i.applyStatus === 'Applied').length} components`, 
+                    `Successfully updated ${appliedCount} component(s)`, 
                     'success');
+            } else {
+                this.showToast('Deployment Complete with Issues', 
+                    `${appliedCount} succeeded, ${failedCount} failed. Check deployment history for details.`, 
+                    'warning');
             }
 
         } catch (err) {

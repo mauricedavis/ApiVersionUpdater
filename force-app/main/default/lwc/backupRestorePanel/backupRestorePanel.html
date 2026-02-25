@@ -1,30 +1,62 @@
 <template>
-    <lightning-card title="Backup & Restore" icon-name="utility:backup">
-        <div class="slds-p-around_medium">
-            <template lwc:if={isLoading}>
-                <lightning-spinner alternative-text="Loading" size="medium"></lightning-spinner>
-            </template>
-            
-            <lightning-tabset active-tab-value={activeSubTab} onactive={handleSubTabChange}>
-                <!-- Backup Items Tab -->
-                <lightning-tab label="Backup Items" value="backup" icon-name="utility:undo">
-                    <div slot="actions">
-                        <template lwc:if={hasBackupData}>
-                            <lightning-button 
-                                label="Restore All" 
-                                variant="brand" 
-                                onclick={handleRestoreAllClick}
-                                disabled={isLoading}
-                                class="slds-m-right_x-small">
-                            </lightning-button>
-                            <lightning-button 
-                                label="Cleanup Backup" 
-                                variant="destructive-text" 
-                                onclick={handleCleanupClick}
-                                disabled={isLoading}>
-                            </lightning-button>
-                        </template>
+    <div class="slds-p-around_medium">
+        <template lwc:if={isLoading}>
+            <lightning-spinner alternative-text="Loading" size="medium"></lightning-spinner>
+        </template>
+        
+        <lightning-tabset active-tab-value={activeSubTab} onactive={handleSubTabChange}>
+            <!-- Deployment History Tab (First) -->
+            <lightning-tab label="Deployment History" value="history" icon-name="utility:clock">
+                <template lwc:if={showDeploymentSuccess}>
+                    <div class="slds-notify slds-notify_alert slds-alert_success slds-m-bottom_medium" role="alert">
+                        <lightning-icon icon-name="utility:success" size="small" variant="inverse" class="slds-m-right_x-small"></lightning-icon>
+                        <span>Deployment completed successfully! {deploymentSuccessMessage}</span>
                     </div>
+                </template>
+                <template lwc:if={hasDeploymentHistory}>
+                    <div class="slds-m-bottom_medium">
+                        <p class="slds-text-body_small slds-text-color_weak">
+                            Showing recent deployments for this session
+                        </p>
+                    </div>
+                    <lightning-datatable
+                        key-field="id"
+                        data={deploymentHistoryItems}
+                        columns={deploymentHistoryColumns}
+                        hide-checkbox-column>
+                    </lightning-datatable>
+                </template>
+                <template lwc:else>
+                    <div class="slds-illustration slds-illustration_small slds-text-align_center">
+                        <div class="slds-text-longform">
+                            <h3 class="slds-text-heading_medium">No Deployment History</h3>
+                            <p class="slds-text-body_regular">
+                                Deployment history will appear here after components are deployed.
+                            </p>
+                        </div>
+                    </div>
+                </template>
+            </lightning-tab>
+            
+            <!-- Backup & Restore Tab (Second) -->
+            <lightning-tab label="Backup & Restore" value="backup" icon-name="utility:undo">
+                <div slot="actions">
+                    <template lwc:if={hasBackupData}>
+                        <lightning-button 
+                            label="Restore All" 
+                            variant="brand" 
+                            onclick={handleRestoreAllClick}
+                            disabled={isLoading}
+                            class="slds-m-right_x-small">
+                        </lightning-button>
+                        <lightning-button 
+                            label="Cleanup Backup" 
+                            variant="destructive-text" 
+                            onclick={handleCleanupClick}
+                            disabled={isLoading}>
+                        </lightning-button>
+                    </template>
+                </div>
                     
                     <template lwc:if={hasBackupData}>
                 <!-- Backup Summary -->
@@ -96,37 +128,9 @@
                     </div>
                 </div>
             </template>
-                </lightning-tab>
-                
-                <!-- Deployment History Tab -->
-                <lightning-tab label="Deployment History" value="history" icon-name="utility:clock">
-                    <template lwc:if={hasDeploymentHistory}>
-                        <div class="slds-m-bottom_medium">
-                            <p class="slds-text-body_small slds-text-color_weak">
-                                Showing recent deployments for this session
-                            </p>
-                        </div>
-                        <lightning-datatable
-                            key-field="id"
-                            data={deploymentHistoryItems}
-                            columns={deploymentHistoryColumns}
-                            hide-checkbox-column>
-                        </lightning-datatable>
-                    </template>
-                    <template lwc:else>
-                        <div class="slds-illustration slds-illustration_small slds-text-align_center">
-                            <div class="slds-text-longform">
-                                <h3 class="slds-text-heading_medium">No Deployment History</h3>
-                                <p class="slds-text-body_regular">
-                                    Deployment history will appear here after components are deployed.
-                                </p>
-                            </div>
-                        </div>
-                    </template>
-                </lightning-tab>
-            </lightning-tabset>
-        </div>
-    </lightning-card>
+            </lightning-tab>
+        </lightning-tabset>
+    </div>
     
     <!-- Preview Modal -->
     <template lwc:if={showPreviewModal}>

@@ -59,7 +59,9 @@ export default class BackupRestorePanel extends LightningElement {
     @track selectedItem;
     @track diffResult;
     @track previewContent;
-    @track activeSubTab = 'backup';
+    @track activeSubTab = 'history';
+    @track showDeploymentSuccess = false;
+    @track deploymentSuccessMessage = '';
     
     columns = COLUMNS;
     deploymentHistoryColumns = DEPLOYMENT_HISTORY_COLUMNS;
@@ -296,6 +298,20 @@ export default class BackupRestorePanel extends LightningElement {
     @api
     async refresh() {
         await this.refreshData();
+    }
+    
+    @api
+    async deploymentComplete(successCount, failCount) {
+        this.activeSubTab = 'history';
+        await this.loadDeploymentHistory();
+        
+        if (failCount === 0 && successCount > 0) {
+            this.showDeploymentSuccess = true;
+            this.deploymentSuccessMessage = `${successCount} component(s) updated successfully.`;
+            setTimeout(() => {
+                this.showDeploymentSuccess = false;
+            }, 10000);
+        }
     }
 
     get hasDeploymentHistory() {
