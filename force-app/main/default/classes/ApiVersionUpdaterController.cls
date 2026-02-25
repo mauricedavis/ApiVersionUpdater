@@ -207,6 +207,11 @@ public with sharing class ApiVersionUpdaterController {
         return RestoreService.getDiff(backupItemId);
     }
     
+    @AuraEnabled
+    public static RestoreService.ManualRestoreDto getManualRestoreData(String backupItemId) {
+        return RestoreService.getManualRestoreData(backupItemId);
+    }
+    
     // Backup Notification Schedule Methods
     
     @AuraEnabled

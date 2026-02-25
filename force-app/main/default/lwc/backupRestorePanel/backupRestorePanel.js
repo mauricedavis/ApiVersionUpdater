@@ -13,6 +13,7 @@ import restoreAll from '@salesforce/apex/ApiVersionUpdaterController.restoreAll'
 import restoreItem from '@salesforce/apex/ApiVersionUpdaterController.restoreItem';
 import getDiff from '@salesforce/apex/ApiVersionUpdaterController.getDiff';
 import getDeploymentHistory from '@salesforce/apex/ApiVersionUpdaterController.getDeploymentHistory';
+import getManualRestoreData from '@salesforce/apex/ApiVersionUpdaterController.getManualRestoreData';
 
 const COLUMNS = [
     { label: 'Name', fieldName: 'fullName', type: 'text', sortable: true },
@@ -72,8 +73,12 @@ export default class BackupRestorePanel extends LightningElement {
     showDiffModal = false;
     showRestoreConfirmModal = false;
     showCleanupConfirmModal = false;
+    showManualRestoreModal = false;
     restoreAllMode = false;
     deploymentHistoryLoaded = false;
+    
+    @track manualRestoreData;
+    codeCopied = false;
     
     wiredSummaryResult;
     wiredItemsResult;
@@ -111,6 +116,10 @@ export default class BackupRestorePanel extends LightningElement {
     
     get noBackupItems() {
         return !this.backupItems || this.backupItems.length === 0;
+    }
+    
+    get copyButtonLabel() {
+        return this.codeCopied ? 'Code Copied!' : 'Copy Code';
     }
     
     get expirationDateFormatted() {
@@ -234,36 +243,52 @@ export default class BackupRestorePanel extends LightningElement {
             console.log('Starting restore for:', this.selectedItem);
             
             if (this.restoreAllMode) {
-                const results = await restoreAll({ deploymentRunId: this.deploymentRunId });
-                console.log('restoreAll results:', results);
-                const successCount = results.filter(r => r.success).length;
-                const failCount = results.length - successCount;
-                
-                this.showToast(
-                    'Restore Complete',
-                    `Restored ${successCount} items${failCount > 0 ? `, ${failCount} failed` : ''}`,
-                    failCount > 0 ? 'warning' : 'success'
-                );
-            } else {
-                console.log('Calling restoreItem with backupItemId:', this.selectedItem.id);
-                const result = await restoreItem({ backupItemId: this.selectedItem.id });
-                console.log('restoreItem result:', result);
-                
-                if (result.success) {
-                    this.showToast('Success', `${this.selectedItem.fullName} restored successfully`, 'success');
-                } else {
-                    const errorMsg = result.errorMessage || 'Restore failed - no error details available';
-                    this.showToast('Restore Failed', errorMsg, 'error');
-                }
+                this.showToast('Manual Restore Required', 
+                    'Due to session limitations, please restore items individually using the manual restore option.', 
+                    'warning');
+                return;
             }
             
-            await this.refreshData();
+            const data = await getManualRestoreData({ backupItemId: this.selectedItem.id });
+            console.log('Manual restore data:', data);
+            
+            if (!data.success) {
+                this.showToast('Error', data.errorMessage || 'Failed to get restore data', 'error');
+                return;
+            }
+            
+            this.manualRestoreData = data;
+            this.codeCopied = false;
+            this.showManualRestoreModal = true;
             
         } catch (error) {
             console.error('Restore exception:', error);
             this.handleError(error);
         } finally {
             this.isLoading = false;
+        }
+    }
+    
+    closeManualRestoreModal() {
+        this.showManualRestoreModal = false;
+        this.manualRestoreData = null;
+        this.codeCopied = false;
+    }
+    
+    async handleCopyRestoreCode() {
+        try {
+            await navigator.clipboard.writeText(this.manualRestoreData.backupContent);
+            this.codeCopied = true;
+            this.showToast('Copied', 'Code copied to clipboard', 'success');
+        } catch (error) {
+            console.error('Copy failed:', error);
+            this.showToast('Error', 'Failed to copy to clipboard', 'error');
+        }
+    }
+    
+    handleOpenRestoreInSetup() {
+        if (this.manualRestoreData && this.manualRestoreData.setupUrl) {
+            window.open(this.manualRestoreData.setupUrl, '_blank');
         }
     }
     

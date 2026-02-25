@@ -1,5 +1,7 @@
 public with sharing class RestoreService {
     
+    public class RestoreException extends Exception {}
+    
     public class RestoreResultDto {
         @AuraEnabled public String backupItemId;
         @AuraEnabled public String fullName;
@@ -37,11 +39,15 @@ public with sharing class RestoreService {
             results.add(result);
         }
         
-        logAuditEvent('RestoreCompleted', new Map<String, Object>{
-            'deploymentRunId' => deploymentRunId,
-            'itemCount' => items.size(),
-            'successCount' => countSuccesses(results)
-        });
+        try {
+            logAuditEvent('RestoreCompleted', new Map<String, Object>{
+                'deploymentRunId' => deploymentRunId,
+                'itemCount' => items.size(),
+                'successCount' => countSuccesses(results)
+            });
+        } catch (Exception e) {
+            System.debug('Failed to log audit event: ' + e.getMessage());
+        }
         
         return results;
     }
@@ -56,11 +62,15 @@ public with sharing class RestoreService {
         
         RestoreResultDto result = restoreItemInternal(item);
         
-        logAuditEvent('RestoreCompleted', new Map<String, Object>{
-            'backupItemId' => backupItemId,
-            'fullName' => item.FullName__c,
-            'success' => result.success
-        });
+        try {
+            logAuditEvent('RestoreCompleted', new Map<String, Object>{
+                'backupItemId' => backupItemId,
+                'fullName' => item.FullName__c,
+                'success' => result.success
+            });
+        } catch (Exception e) {
+            System.debug('Failed to log audit event: ' + e.getMessage());
+        }
         
         return result;
     }
@@ -74,16 +84,23 @@ public with sharing class RestoreService {
             String backupContent = getBackupContentByTitle(item.FullName__c);
             
             if (String.isBlank(backupContent)) {
-                throw new AuraHandledException('No backup content found for ' + item.FullName__c);
+                throw new RestoreException('No backup content found for ' + item.FullName__c + '. The backup file may have been deleted.');
             }
+            
+            System.debug('Restoring ' + item.ArtifactType__c + ': ' + item.FullName__c + ' (' + backupContent.length() + ' chars)');
             
             restoreContent(item.ArtifactType__c, item.FullName__c, backupContent);
             
             result.success = true;
             result.restoredAt = Datetime.now();
             
+        } catch (RestoreException e) {
+            System.debug('RestoreException for ' + item.FullName__c + ': ' + e.getMessage());
+            result.success = false;
+            result.errorMessage = e.getMessage();
         } catch (Exception e) {
             System.debug('Restore error for ' + item.FullName__c + ': ' + e.getMessage());
+            System.debug('Exception type: ' + e.getTypeName());
             System.debug('Stack trace: ' + e.getStackTraceString());
             
             result.success = false;
@@ -120,7 +137,7 @@ public with sharing class RestoreService {
         String artifactId = getArtifactId(artifactType, fullName);
         
         if (String.isBlank(artifactId)) {
-            throw new AuraHandledException('Could not find ' + artifactType + ': ' + fullName);
+            throw new RestoreException('Could not find ' + artifactType + ': ' + fullName);
         }
         
         if (artifactType == 'ApexClass' || artifactType == 'ApexTrigger') {
@@ -134,7 +151,16 @@ public with sharing class RestoreService {
         String baseUrl = URL.getOrgDomainUrl().toExternalForm();
         String sessionId = UserInfo.getSessionId();
         
-        String containerId = createMetadataContainer(baseUrl, sessionId);
+        if (String.isBlank(sessionId)) {
+            throw new RestoreException('Unable to obtain session for Tooling API. Please try restoring manually via Setup > Apex Classes.');
+        }
+        
+        String containerId;
+        try {
+            containerId = createMetadataContainer(baseUrl, sessionId);
+        } catch (Exception e) {
+            throw new RestoreException('Failed to create restore container. Session may be invalid for Tooling API. Error: ' + e.getMessage());
+        }
         
         try {
             String memberType = artifactType == 'ApexClass' ? 'ApexClassMember' : 'ApexTriggerMember';
@@ -148,10 +174,16 @@ public with sharing class RestoreService {
             
             if (status != 'Completed') {
                 String errorDetails = getContainerErrorDetails(baseUrl, sessionId, asyncRequestId);
-                throw new AuraHandledException('Restore deployment failed: ' + errorDetails);
+                throw new RestoreException('Restore deployment failed: ' + errorDetails);
             }
+        } catch (RestoreException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new RestoreException('Restore failed: ' + e.getMessage() + '. You may need to restore manually via Setup > Apex Classes.');
         } finally {
-            deleteContainer(baseUrl, sessionId, containerId);
+            if (String.isNotBlank(containerId)) {
+                deleteContainer(baseUrl, sessionId, containerId);
+            }
         }
     }
     
@@ -174,7 +206,7 @@ public with sharing class RestoreService {
         HttpResponse res = http.send(req);
         
         if (res.getStatusCode() != 200 && res.getStatusCode() != 204) {
-            throw new AuraHandledException('Failed to restore: ' + res.getBody());
+            throw new RestoreException('Failed to restore: ' + res.getBody());
         }
     }
     
@@ -200,7 +232,7 @@ public with sharing class RestoreService {
             return (String) result.get('id');
         }
         
-        throw new AuraHandledException('Failed to create restore container: ' + res.getBody());
+        throw new RestoreException('Failed to create restore container: ' + res.getBody());
     }
     
     private static Decimal getCurrentApiVersion(String artifactType, String fullName) {
@@ -241,7 +273,7 @@ public with sharing class RestoreService {
         HttpResponse res = http.send(req);
         
         if (res.getStatusCode() != 201) {
-            throw new AuraHandledException('Failed to add member for restore: ' + res.getBody());
+            throw new RestoreException('Failed to add member for restore: ' + res.getBody());
         }
     }
     
@@ -269,7 +301,7 @@ public with sharing class RestoreService {
             return (String) result.get('id');
         }
         
-        throw new AuraHandledException('Failed to deploy restore container: ' + res.getBody());
+        throw new RestoreException('Failed to deploy restore container: ' + res.getBody());
     }
     
     private static String pollForCompletion(String baseUrl, String sessionId, String asyncRequestId) {
@@ -297,7 +329,7 @@ public with sharing class RestoreService {
                     attempt++;
                 }
             } else {
-                throw new AuraHandledException('Failed to poll restore status: ' + res.getBody());
+                throw new RestoreException('Failed to poll restore status: ' + res.getBody());
             }
         }
         
@@ -533,6 +565,56 @@ public with sharing class RestoreService {
     @AuraEnabled(cacheable=true)
     public static List<BackupService.BackupItemDto> getRestorableItems(String deploymentRunId) {
         return BackupService.getBackupItems(deploymentRunId);
+    }
+    
+    public class ManualRestoreDto {
+        @AuraEnabled public String backupItemId;
+        @AuraEnabled public String fullName;
+        @AuraEnabled public String artifactType;
+        @AuraEnabled public String artifactId;
+        @AuraEnabled public String backupContent;
+        @AuraEnabled public String setupUrl;
+        @AuraEnabled public Boolean success;
+        @AuraEnabled public String errorMessage;
+    }
+    
+    @AuraEnabled
+    public static ManualRestoreDto getManualRestoreData(String backupItemId) {
+        ManualRestoreDto result = new ManualRestoreDto();
+        result.backupItemId = backupItemId;
+        
+        try {
+            BackupItem__c item = [
+                SELECT Id, ArtifactType__c, FullName__c
+                FROM BackupItem__c
+                WHERE Id = :backupItemId
+            ];
+            
+            result.fullName = item.FullName__c;
+            result.artifactType = item.ArtifactType__c;
+            
+            result.backupContent = getBackupContentByTitle(item.FullName__c);
+            
+            if (String.isBlank(result.backupContent)) {
+                result.success = false;
+                result.errorMessage = 'No backup content found for ' + item.FullName__c;
+                return result;
+            }
+            
+            result.artifactId = getArtifactId(item.ArtifactType__c, item.FullName__c);
+            
+            if (String.isNotBlank(result.artifactId)) {
+                result.setupUrl = '/' + result.artifactId;
+            }
+            
+            result.success = true;
+            
+        } catch (Exception e) {
+            result.success = false;
+            result.errorMessage = e.getMessage();
+        }
+        
+        return result;
     }
     
     private static Integer countSuccesses(List<RestoreResultDto> results) {

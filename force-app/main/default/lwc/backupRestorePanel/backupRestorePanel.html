@@ -280,4 +280,69 @@
         </section>
         <div class="slds-backdrop slds-backdrop_open"></div>
     </template>
+    
+    <!-- Manual Restore Modal -->
+    <template lwc:if={showManualRestoreModal}>
+        <section role="dialog" tabindex="-1" class="slds-modal slds-fade-in-open slds-modal_large">
+            <div class="slds-modal__container">
+                <header class="slds-modal__header">
+                    <button class="slds-button slds-button_icon slds-modal__close slds-button_icon-inverse" 
+                            title="Close" onclick={closeManualRestoreModal}>
+                        <lightning-icon icon-name="utility:close" alternative-text="Close" size="small"></lightning-icon>
+                    </button>
+                    <h2 class="slds-modal__title">Manual Restore: {manualRestoreData.fullName}</h2>
+                </header>
+                <div class="slds-modal__content slds-p-around_medium">
+                    <div class="slds-notify slds-notify_alert slds-alert_warning slds-m-bottom_medium" role="alert">
+                        <lightning-icon icon-name="utility:info" size="small" class="slds-m-right_x-small"></lightning-icon>
+                        <span>Due to Salesforce session limitations, automatic restore is not available. Please follow these steps to restore manually:</span>
+                    </div>
+                    
+                    <div class="slds-grid slds-gutters slds-m-bottom_medium">
+                        <div class="slds-col slds-size_1-of-2">
+                            <div class="slds-box slds-box_xx-small slds-text-align_center">
+                                <p class="slds-text-heading_small slds-m-bottom_small">Step 1: Copy the Code</p>
+                                <lightning-button 
+                                    label={copyButtonLabel}
+                                    variant="brand" 
+                                    onclick={handleCopyRestoreCode}
+                                    icon-name="utility:copy">
+                                </lightning-button>
+                            </div>
+                        </div>
+                        <div class="slds-col slds-size_1-of-2">
+                            <div class="slds-box slds-box_xx-small slds-text-align_center">
+                                <p class="slds-text-heading_small slds-m-bottom_small">Step 2: Open in Setup</p>
+                                <lightning-button 
+                                    label="Open Class in Setup" 
+                                    variant="brand" 
+                                    onclick={handleOpenRestoreInSetup}
+                                    icon-name="utility:new_window">
+                                </lightning-button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="slds-text-body_small slds-text-color_weak slds-m-bottom_small">
+                        <p><strong>Instructions:</strong></p>
+                        <ol class="slds-list_ordered">
+                            <li>Click "Copy Code" to copy the backup code to your clipboard</li>
+                            <li>Click "Open Class in Setup" to open the class in Salesforce Setup</li>
+                            <li>Click "Edit" in Setup</li>
+                            <li>Select all existing code and paste the backup code</li>
+                            <li>Click "Save"</li>
+                        </ol>
+                    </div>
+                    
+                    <div class="code-preview">
+                        <pre><code>{manualRestoreData.backupContent}</code></pre>
+                    </div>
+                </div>
+                <footer class="slds-modal__footer">
+                    <lightning-button label="Close" onclick={closeManualRestoreModal}></lightning-button>
+                </footer>
+            </div>
+        </section>
+        <div class="slds-backdrop slds-backdrop_open"></div>
+    </template>
 </template>
