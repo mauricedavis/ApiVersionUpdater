@@ -17,6 +17,19 @@ import getManualRestoreData from '@salesforce/apex/ApiVersionUpdaterController.g
 import verifyAndMarkRestored from '@salesforce/apex/ApiVersionUpdaterController.verifyAndMarkRestored';
 import markAsRestoredManually from '@salesforce/apex/ApiVersionUpdaterController.markAsRestoredManually';
 
+const getRowActions = (row, doneCallback) => {
+    const actions = [
+        { label: 'Preview', name: 'preview' },
+        { label: 'View Diff', name: 'diff' }
+    ];
+    
+    if (row.restoreStatus !== 'Restored') {
+        actions.push({ label: 'Restore', name: 'restore' });
+    }
+    
+    doneCallback(actions);
+};
+
 const COLUMNS = [
     { label: 'Name', fieldName: 'fullName', type: 'text', sortable: true },
     { label: 'Type', fieldName: 'artifactType', type: 'text', sortable: true },
@@ -30,11 +43,7 @@ const COLUMNS = [
     },
     {
         type: 'action',
-        typeAttributes: { rowActions: [
-            { label: 'Preview', name: 'preview' },
-            { label: 'View Diff', name: 'diff' },
-            { label: 'Restore', name: 'restore' }
-        ]}
+        typeAttributes: { rowActions: getRowActions }
     }
 ];
 
