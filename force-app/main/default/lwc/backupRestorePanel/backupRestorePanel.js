@@ -308,6 +308,14 @@ export default class BackupRestorePanel extends LightningElement {
     }
     
     @api
+    showBackupTab() {
+        this.activeSubTab = 'backup';
+        if (!this.backupItemsLoaded) {
+            this.loadBackupItemsByPlan();
+        }
+    }
+    
+    @api
     async deploymentComplete(successCount, failCount) {
         this.activeSubTab = 'history';
         this.deploymentHistoryLoaded = false;

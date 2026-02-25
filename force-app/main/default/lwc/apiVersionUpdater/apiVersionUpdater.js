@@ -1207,5 +1207,12 @@ export default class ApiVersionUpdater extends LightningElement {
 
     handleRestore() {
         this.activeView = 'deploy';
+        
+        setTimeout(() => {
+            const backupPanel = this.template.querySelector('c-backup-restore-panel');
+            if (backupPanel) {
+                backupPanel.showBackupTab();
+            }
+        }, 100);
     }
 }
