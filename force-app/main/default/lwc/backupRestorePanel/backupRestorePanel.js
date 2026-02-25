@@ -231,8 +231,11 @@ export default class BackupRestorePanel extends LightningElement {
         this.showRestoreConfirmModal = false;
         
         try {
+            console.log('Starting restore for:', this.selectedItem);
+            
             if (this.restoreAllMode) {
                 const results = await restoreAll({ deploymentRunId: this.deploymentRunId });
+                console.log('restoreAll results:', results);
                 const successCount = results.filter(r => r.success).length;
                 const failCount = results.length - successCount;
                 
@@ -242,18 +245,22 @@ export default class BackupRestorePanel extends LightningElement {
                     failCount > 0 ? 'warning' : 'success'
                 );
             } else {
+                console.log('Calling restoreItem with backupItemId:', this.selectedItem.id);
                 const result = await restoreItem({ backupItemId: this.selectedItem.id });
+                console.log('restoreItem result:', result);
                 
                 if (result.success) {
                     this.showToast('Success', `${this.selectedItem.fullName} restored successfully`, 'success');
                 } else {
-                    this.showToast('Error', result.errorMessage, 'error');
+                    const errorMsg = result.errorMessage || 'Restore failed - no error details available';
+                    this.showToast('Restore Failed', errorMsg, 'error');
                 }
             }
             
             await this.refreshData();
             
         } catch (error) {
+            console.error('Restore exception:', error);
             this.handleError(error);
         } finally {
             this.isLoading = false;
@@ -365,8 +372,24 @@ export default class BackupRestorePanel extends LightningElement {
     }
     
     handleError(error) {
-        console.error('BackupRestorePanel error:', error);
-        const message = error?.body?.message || error?.message || 'An unknown error occurred';
+        console.error('BackupRestorePanel error:', JSON.stringify(error));
+        let message = 'An unknown error occurred';
+        
+        if (error?.body?.message) {
+            message = error.body.message;
+        } else if (error?.message) {
+            message = error.message;
+        } else if (error?.body?.fieldErrors) {
+            const fieldErrors = Object.values(error.body.fieldErrors).flat();
+            message = fieldErrors.map(e => e.message).join(', ');
+        } else if (error?.body?.pageErrors) {
+            message = error.body.pageErrors.map(e => e.message).join(', ');
+        } else if (typeof error === 'string') {
+            message = error;
+        } else if (error?.body) {
+            message = JSON.stringify(error.body);
+        }
+        
         this.showToast('Error', message, 'error');
     }
     
