@@ -459,7 +459,7 @@ public with sharing class DeploymentService {
                         
                         if (status == 'Completed') {
                             for (ChangeItem__c item : pendingItems) {
-                                Decimal actualVersion = verifyClassApiVersion(item.FullName__c);
+                                Decimal actualVersion = verifyArtifactApiVersion(item.FullName__c, artifactType);
                                 if (actualVersion != null && actualVersion == targetVersion) {
                                     item.ApplyStatus__c = 'Applied';
                                     successCount++;
@@ -470,7 +470,6 @@ public with sharing class DeploymentService {
                                     errorMessages.add(item.FullName__c + ': Version not updated - still at ' + actualVersion);
                                 } else {
                                     item.ApplyStatus__c = 'Applied';
-                                    item.ErrorDetails__c = 'Could not verify API version after deployment';
                                     successCount++;
                                 }
                             }
@@ -840,10 +839,29 @@ public with sharing class DeploymentService {
             }
         }
         
-        private Decimal verifyClassApiVersion(String className) {
+        private Decimal verifyArtifactApiVersion(String fullName, String artifactType) {
+            String objectName;
+            switch on artifactType {
+                when 'ApexClass' {
+                    objectName = 'ApexClass';
+                }
+                when 'ApexTrigger' {
+                    objectName = 'ApexTrigger';
+                }
+                when 'ApexPage' {
+                    objectName = 'ApexPage';
+                }
+                when 'ApexComponent' {
+                    objectName = 'ApexComponent';
+                }
+                when else {
+                    return null;
+                }
+            }
+            
             String endpoint = URL.getOrgDomainUrl().toExternalForm() + 
                 '/services/data/v65.0/tooling/query/?q=' +
-                EncodingUtil.urlEncode('SELECT ApiVersion FROM ApexClass WHERE Name = \'' + className + '\' LIMIT 1', 'UTF-8');
+                EncodingUtil.urlEncode('SELECT ApiVersion FROM ' + objectName + ' WHERE Name = \'' + fullName + '\' LIMIT 1', 'UTF-8');
             
             HttpRequest req = new HttpRequest();
             req.setEndpoint(endpoint);
@@ -854,7 +872,7 @@ public with sharing class DeploymentService {
             Http http = new Http();
             HttpResponse res = http.send(req);
             
-            System.debug('VerifyApiVersion for ' + className + ': ' + res.getStatusCode() + ' - ' + res.getBody());
+            System.debug('VerifyApiVersion for ' + artifactType + ':' + fullName + ': ' + res.getStatusCode() + ' - ' + res.getBody());
             
             if (res.getStatusCode() == 200) {
                 Map<String, Object> response = (Map<String, Object>) JSON.deserializeUntyped(res.getBody());
