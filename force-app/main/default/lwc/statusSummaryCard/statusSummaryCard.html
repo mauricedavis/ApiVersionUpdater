@@ -127,25 +127,16 @@
                             <div class="card-empty">No plan created</div>
                         </template>
                         
-                        <div class="card-action card-action-centered">
-                            <template lwc:if={showDeployButton}>
-                                <lightning-button 
-                                    variant="brand" 
-                                    label="Deploy"
-                                    icon-name="utility:upload"
-                                    onclick={handleDeployClick}
-                                    class="action-button">
-                                </lightning-button>
-                            </template>
-                            <template lwc:elseif={hasPlan}>
+                        <template lwc:if={hasPlan}>
+                            <div class="card-action card-action-centered">
                                 <lightning-button 
                                     variant="neutral" 
                                     label="View Plan"
                                     onclick={handlePlanClick}
                                     class="centered-button">
                                 </lightning-button>
-                            </template>
-                        </div>
+                            </div>
+                        </template>
                     </div>
                     <div class={connector3Class}></div>
                 </div>

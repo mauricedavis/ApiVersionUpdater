@@ -1,12 +1,12 @@
 <template>
     <div class="slds-grid slds-gutters slds-wrap">
         <!-- Plan Summary -->
-        <div class="slds-col slds-size_1-of-1 slds-m-bottom_medium">
+        <div class="slds-col slds-size_1-of-1 slds-m-bottom_small">
             <lightning-card title="Change Plan Summary">
                 <div slot="actions">
                     <span class={planStatusClass}>{changePlan.status}</span>
                 </div>
-                <div class="slds-p-around_medium">
+                <div class="slds-p-horizontal_medium slds-p-vertical_small">
                     <div class="slds-grid slds-gutters slds-wrap">
                         <div class="slds-col slds-size_1-of-6">
                             <div class="slds-box stat-box">
@@ -49,7 +49,7 @@
                     </div>
 
                     <!-- Validation Flow Actions -->
-                    <div class="slds-m-top_large">
+                    <div class="slds-m-top_small">
                         <div class="slds-grid slds-grid_align-center slds-gutters">
                             <!-- Step 1: Validate -->
                             <div class="slds-col">
