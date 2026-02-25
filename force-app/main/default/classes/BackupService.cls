@@ -292,10 +292,16 @@ public with sharing class BackupService {
         summary.notificationSent = run.BackupNotificationSent__c;
         summary.totalItems = Integer.valueOf(run.BackupItemCount__c);
         
-        Integer itemCount = [SELECT COUNT() FROM BackupItem__c WHERE DeploymentRun__c = :deploymentRunId];
+        List<BackupItem__c> backupItems = [SELECT Id FROM BackupItem__c WHERE DeploymentRun__c = :deploymentRunId];
+        Set<Id> backupItemIds = new Set<Id>();
+        for (BackupItem__c item : backupItems) {
+            backupItemIds.add(item.Id);
+        }
         
-        summary.restoredCount = 0;
-        summary.pendingCount = itemCount;
+        Integer restoredCount = getRestoreEventsForBackupItems(backupItemIds).size();
+        
+        summary.restoredCount = restoredCount;
+        summary.pendingCount = backupItems.size() - restoredCount;
         
         return summary;
     }
@@ -304,23 +310,68 @@ public with sharing class BackupService {
     public static List<BackupItemDto> getBackupItems(String deploymentRunId) {
         List<BackupItemDto> items = new List<BackupItemDto>();
         
-        for (BackupItem__c item : [
-            SELECT Id, DeploymentRun__c, ArtifactType__c, FullName__c
+        List<BackupItem__c> backupItems = [
+            SELECT Id, DeploymentRun__c, ArtifactType__c, FullName__c, CreatedDate
             FROM BackupItem__c
             WHERE DeploymentRun__c = :deploymentRunId
             ORDER BY FullName__c
-        ]) {
+        ];
+        
+        Set<Id> backupItemIds = new Set<Id>();
+        for (BackupItem__c item : backupItems) {
+            backupItemIds.add(item.Id);
+        }
+        
+        Map<Id, AuditEvent__c> restoreEvents = getRestoreEventsForBackupItems(backupItemIds);
+        
+        for (BackupItem__c item : backupItems) {
             BackupItemDto dto = new BackupItemDto();
             dto.id = item.Id;
             dto.deploymentRunId = item.DeploymentRun__c;
             dto.artifactType = item.ArtifactType__c;
             dto.fullName = item.FullName__c;
-            dto.restoreStatus = 'NotRestored';
+            dto.backupCreatedAt = item.CreatedDate;
+            
+            if (restoreEvents.containsKey(item.Id)) {
+                dto.restoreStatus = 'Restored';
+                dto.restoredAt = restoreEvents.get(item.Id).Timestamp__c;
+            } else {
+                dto.restoreStatus = 'NotRestored';
+            }
             
             items.add(dto);
         }
         
         return items;
+    }
+    
+    private static Map<Id, AuditEvent__c> getRestoreEventsForBackupItems(Set<Id> backupItemIds) {
+        Map<Id, AuditEvent__c> result = new Map<Id, AuditEvent__c>();
+        
+        for (AuditEvent__c event : [
+            SELECT Id, DetailsJson__c, Timestamp__c
+            FROM AuditEvent__c
+            WHERE EventType__c = 'RestoreCompleted'
+            ORDER BY Timestamp__c DESC
+        ]) {
+            if (String.isNotBlank(event.DetailsJson__c)) {
+                try {
+                    Map<String, Object> details = (Map<String, Object>) JSON.deserializeUntyped(event.DetailsJson__c);
+                    String backupItemId = (String) details.get('backupItemId');
+                    Boolean success = details.get('success') == true;
+                    
+                    if (String.isNotBlank(backupItemId) && success && backupItemIds.contains(Id.valueOf(backupItemId))) {
+                        if (!result.containsKey(Id.valueOf(backupItemId))) {
+                            result.put(Id.valueOf(backupItemId), event);
+                        }
+                    }
+                } catch (Exception e) {
+                    System.debug('Error parsing audit event: ' + e.getMessage());
+                }
+            }
+        }
+        
+        return result;
     }
     
     @AuraEnabled
@@ -349,11 +400,17 @@ public with sharing class BackupService {
             runIds.add(run.Id);
         }
         
-        Integer totalCount = [SELECT COUNT() FROM BackupItem__c WHERE DeploymentRun__c IN :runIds];
+        List<BackupItem__c> backupItems = [SELECT Id FROM BackupItem__c WHERE DeploymentRun__c IN :runIds];
+        Set<Id> backupItemIds = new Set<Id>();
+        for (BackupItem__c item : backupItems) {
+            backupItemIds.add(item.Id);
+        }
         
-        summary.totalItems = totalCount;
-        summary.restoredCount = 0;
-        summary.pendingCount = totalCount;
+        Integer restoredCount = getRestoreEventsForBackupItems(backupItemIds).size();
+        
+        summary.totalItems = backupItems.size();
+        summary.restoredCount = restoredCount;
+        summary.pendingCount = backupItems.size() - restoredCount;
         
         return summary;
     }
@@ -375,18 +432,34 @@ public with sharing class BackupService {
             return items;
         }
         
-        for (BackupItem__c item : [
-            SELECT Id, DeploymentRun__c, ArtifactType__c, FullName__c
+        List<BackupItem__c> backupItems = [
+            SELECT Id, DeploymentRun__c, ArtifactType__c, FullName__c, CreatedDate
             FROM BackupItem__c
             WHERE DeploymentRun__c IN :runIds
             ORDER BY FullName__c
-        ]) {
+        ];
+        
+        Set<Id> backupItemIds = new Set<Id>();
+        for (BackupItem__c item : backupItems) {
+            backupItemIds.add(item.Id);
+        }
+        
+        Map<Id, AuditEvent__c> restoreEvents = getRestoreEventsForBackupItems(backupItemIds);
+        
+        for (BackupItem__c item : backupItems) {
             BackupItemDto dto = new BackupItemDto();
             dto.id = item.Id;
             dto.deploymentRunId = item.DeploymentRun__c;
             dto.artifactType = item.ArtifactType__c;
             dto.fullName = item.FullName__c;
-            dto.restoreStatus = 'NotRestored';
+            dto.backupCreatedAt = item.CreatedDate;
+            
+            if (restoreEvents.containsKey(item.Id)) {
+                dto.restoreStatus = 'Restored';
+                dto.restoredAt = restoreEvents.get(item.Id).Timestamp__c;
+            } else {
+                dto.restoreStatus = 'NotRestored';
+            }
             
             items.add(dto);
         }
