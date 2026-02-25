@@ -151,26 +151,55 @@ export default class StatusSummaryCard extends LightningElement {
         return classes;
     }
 
+    get isScanSelected() {
+        return this.currentStep === 1;
+    }
+
+    get isReviewSelected() {
+        return this.currentStep === 2;
+    }
+
+    get isPlanSelected() {
+        return this.currentStep === 3;
+    }
+
+    get isDeploySelected() {
+        return this.currentStep === 4;
+    }
+
+    get isScanStepComplete() {
+        return this.isScanComplete;
+    }
+
+    get isReviewStepComplete() {
+        return this.hasPlan;
+    }
+
+    get isPlanStepComplete() {
+        return this.hasDeployment;
+    }
+
+    get isDeployStepComplete() {
+        const status = this.displayDeploymentStatus;
+        return status === 'Completed' || status === 'Succeeded';
+    }
+
     get scanStepBadgeClass() {
-        if (this.currentStep >= 2 || this.isScanComplete) return 'step-badge step-badge-complete';
         if (this.currentStep === 1) return 'step-badge step-badge-active';
         return 'step-badge';
     }
 
     get findingsStepBadgeClass() {
-        if (this.currentStep >= 3) return 'step-badge step-badge-complete';
         if (this.currentStep === 2) return 'step-badge step-badge-active';
         return 'step-badge';
     }
 
     get planStepBadgeClass() {
-        if (this.currentStep >= 4) return 'step-badge step-badge-complete';
         if (this.currentStep === 3) return 'step-badge step-badge-active';
         return 'step-badge';
     }
 
     get deployStepBadgeClass() {
-        if (this.hasDeployment && this.displayDeploymentStatus === 'Completed') return 'step-badge step-badge-complete';
         if (this.currentStep === 4) return 'step-badge step-badge-active';
         return 'step-badge';
     }

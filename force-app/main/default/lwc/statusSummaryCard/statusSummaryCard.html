@@ -4,12 +4,24 @@
                 <!-- 1. Scan Card -->
                 <div class="workflow-step">
                     <div class={scanCardClass} onclick={handleScanClick}>
+                        <template lwc:if={isScanSelected}>
+                            <div class="selected-check">
+                                <lightning-icon icon-name="utility:check" size="xx-small" variant="inverse"></lightning-icon>
+                            </div>
+                        </template>
                         <div class="card-header-inline">
                             <div class="card-icon scan-icon">
                                 <lightning-icon icon-name="utility:search" size="x-small"></lightning-icon>
                             </div>
                             <span class="card-title-inline">Scan</span>
-                            <div class={scanStepBadgeClass}>1</div>
+                            <template lwc:if={isScanStepComplete}>
+                                <div class="step-badge step-badge-complete">
+                                    <lightning-icon icon-name="utility:check" size="xx-small" variant="inverse"></lightning-icon>
+                                </div>
+                            </template>
+                            <template lwc:else>
+                                <div class={scanStepBadgeClass}>1</div>
+                            </template>
                         </div>
                         
                         <div class="target-api-badge">
@@ -64,12 +76,24 @@
                 <!-- 2. Review Card -->
                 <div class="workflow-step">
                     <div class={findingsCardClass} onclick={handleFindingsClick}>
+                        <template lwc:if={isReviewSelected}>
+                            <div class="selected-check">
+                                <lightning-icon icon-name="utility:check" size="xx-small" variant="inverse"></lightning-icon>
+                            </div>
+                        </template>
                         <div class="card-header-inline">
                             <div class="card-icon findings-icon">
                                 <lightning-icon icon-name="utility:preview" size="x-small"></lightning-icon>
                             </div>
                             <span class="card-title-inline">Review</span>
-                            <div class={findingsStepBadgeClass}>2</div>
+                            <template lwc:if={isReviewStepComplete}>
+                                <div class="step-badge step-badge-complete">
+                                    <lightning-icon icon-name="utility:check" size="xx-small" variant="inverse"></lightning-icon>
+                                </div>
+                            </template>
+                            <template lwc:else>
+                                <div class={findingsStepBadgeClass}>2</div>
+                            </template>
                         </div>
                         
                         <template lwc:if={isScanComplete}>
@@ -106,12 +130,24 @@
                 <!-- 3. Plan Card -->
                 <div class="workflow-step">
                     <div class={planCardClass} onclick={handlePlanClick}>
+                        <template lwc:if={isPlanSelected}>
+                            <div class="selected-check">
+                                <lightning-icon icon-name="utility:check" size="xx-small" variant="inverse"></lightning-icon>
+                            </div>
+                        </template>
                         <div class="card-header-inline">
                             <div class="card-icon plan-icon">
                                 <lightning-icon icon-name="utility:edit" size="x-small"></lightning-icon>
                             </div>
                             <span class="card-title-inline">Plan</span>
-                            <div class={planStepBadgeClass}>3</div>
+                            <template lwc:if={isPlanStepComplete}>
+                                <div class="step-badge step-badge-complete">
+                                    <lightning-icon icon-name="utility:check" size="xx-small" variant="inverse"></lightning-icon>
+                                </div>
+                            </template>
+                            <template lwc:else>
+                                <div class={planStepBadgeClass}>3</div>
+                            </template>
                         </div>
                         
                         <template lwc:if={hasPlan}>
@@ -144,12 +180,24 @@
                 <!-- 4. Deploy Card -->
                 <div class="workflow-step workflow-step-last">
                     <div class={deploymentCardClass} onclick={handleDeploymentClick}>
+                        <template lwc:if={isDeploySelected}>
+                            <div class="selected-check">
+                                <lightning-icon icon-name="utility:check" size="xx-small" variant="inverse"></lightning-icon>
+                            </div>
+                        </template>
                         <div class="card-header-inline">
                             <div class="card-icon deployment-icon">
                                 <lightning-icon icon-name="utility:upload" size="x-small"></lightning-icon>
                             </div>
                             <span class="card-title-inline">Deploy</span>
-                            <div class={deployStepBadgeClass}>4</div>
+                            <template lwc:if={isDeployStepComplete}>
+                                <div class="step-badge step-badge-complete">
+                                    <lightning-icon icon-name="utility:check" size="xx-small" variant="inverse"></lightning-icon>
+                                </div>
+                            </template>
+                            <template lwc:else>
+                                <div class={deployStepBadgeClass}>4</div>
+                            </template>
                         </div>
                         
                         <template lwc:if={hasDeployment}>
