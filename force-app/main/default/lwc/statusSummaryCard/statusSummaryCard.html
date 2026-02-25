@@ -103,21 +103,14 @@
                             <div class="card-empty">Complete a scan to review</div>
                         </template>
                         
-                        <template lwc:if={showReviewButtons}>
+                        <template lwc:if={showCreatePlanButton}>
                             <div class="card-action-buttons">
                                 <lightning-button 
-                                    variant="neutral" 
-                                    label="View Findings"
-                                    onclick={handleFindingsClick}>
+                                    variant="brand" 
+                                    label="Create Plan"
+                                    icon-name="utility:edit"
+                                    onclick={handleCreatePlan}>
                                 </lightning-button>
-                                <template lwc:if={showCreatePlanButton}>
-                                    <lightning-button 
-                                        variant="brand" 
-                                        label="Create Plan"
-                                        icon-name="utility:edit"
-                                        onclick={handleCreatePlan}>
-                                    </lightning-button>
-                                </template>
                             </div>
                         </template>
                     </div>

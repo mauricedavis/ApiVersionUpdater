@@ -1114,6 +1114,14 @@ export default class ApiVersionUpdater extends LightningElement {
             return;
         }
         
+        const isSameScan = this.selectedScanId === id || this.session?.currentScanId === id;
+        
+        if (isSameScan) {
+            this.activeView = 'review';
+            this.activeTab = 'scanfindings';
+            return;
+        }
+        
         try {
             this.isLoading = true;
             this.selectedScanId = id;
