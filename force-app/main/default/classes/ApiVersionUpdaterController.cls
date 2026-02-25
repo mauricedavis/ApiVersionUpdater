@@ -161,6 +161,16 @@ public with sharing class ApiVersionUpdaterController {
     }
     
     @AuraEnabled
+    public static BackupService.BackupSummaryDto getBackupSummaryByPlan(String planId) {
+        return BackupService.getBackupSummaryByPlan(planId);
+    }
+    
+    @AuraEnabled
+    public static List<BackupService.BackupItemDto> getBackupItemsByPlan(String planId) {
+        return BackupService.getBackupItemsByPlan(planId);
+    }
+    
+    @AuraEnabled
     public static String getBackupContent(String backupItemId) {
         return BackupService.getBackupContent(backupItemId);
     }

@@ -4,6 +4,8 @@ import { refreshApex } from '@salesforce/apex';
 
 import getBackupSummary from '@salesforce/apex/ApiVersionUpdaterController.getBackupSummary';
 import getBackupItems from '@salesforce/apex/ApiVersionUpdaterController.getBackupItems';
+import getBackupSummaryByPlan from '@salesforce/apex/ApiVersionUpdaterController.getBackupSummaryByPlan';
+import getBackupItemsByPlan from '@salesforce/apex/ApiVersionUpdaterController.getBackupItemsByPlan';
 import getBackupContent from '@salesforce/apex/ApiVersionUpdaterController.getBackupContent';
 import createBackupForDeployment from '@salesforce/apex/ApiVersionUpdaterController.createBackupForDeployment';
 import cleanupBackup from '@salesforce/apex/ApiVersionUpdaterController.cleanupBackup';
@@ -75,24 +77,31 @@ export default class BackupRestorePanel extends LightningElement {
     
     wiredSummaryResult;
     wiredItemsResult;
+    backupItemsLoaded = false;
     
-    @wire(getBackupSummary, { deploymentRunId: '$deploymentRunId' })
-    wiredSummary(result) {
-        this.wiredSummaryResult = result;
-        if (result.data) {
-            this.backupSummary = result.data;
-        } else if (result.error) {
-            this.handleError(result.error);
+    connectedCallback() {
+        if (this.planId) {
+            this.loadDeploymentHistory();
+            this.loadBackupItemsByPlan();
         }
     }
     
-    @wire(getBackupItems, { deploymentRunId: '$deploymentRunId' })
-    wiredItems(result) {
-        this.wiredItemsResult = result;
-        if (result.data) {
-            this.backupItems = result.data;
-        } else if (result.error) {
-            this.handleError(result.error);
+    async loadBackupItemsByPlan() {
+        if (!this.planId || this.backupItemsLoaded) return;
+        
+        this.isLoading = true;
+        try {
+            const [summary, items] = await Promise.all([
+                getBackupSummaryByPlan({ planId: this.planId }),
+                getBackupItemsByPlan({ planId: this.planId })
+            ]);
+            this.backupSummary = summary;
+            this.backupItems = items || [];
+            this.backupItemsLoaded = true;
+        } catch (error) {
+            this.handleError(error);
+        } finally {
+            this.isLoading = false;
         }
     }
     
@@ -289,10 +298,8 @@ export default class BackupRestorePanel extends LightningElement {
     }
     
     async refreshData() {
-        await Promise.all([
-            refreshApex(this.wiredSummaryResult),
-            refreshApex(this.wiredItemsResult)
-        ]);
+        this.backupItemsLoaded = false;
+        await this.loadBackupItemsByPlan();
     }
 
     @api
@@ -303,7 +310,13 @@ export default class BackupRestorePanel extends LightningElement {
     @api
     async deploymentComplete(successCount, failCount) {
         this.activeSubTab = 'history';
-        await this.loadDeploymentHistory();
+        this.deploymentHistoryLoaded = false;
+        this.backupItemsLoaded = false;
+        
+        await Promise.all([
+            this.loadDeploymentHistory(),
+            this.loadBackupItemsByPlan()
+        ]);
         
         if (failCount === 0 && successCount > 0) {
             this.showDeploymentSuccess = true;
@@ -323,6 +336,9 @@ export default class BackupRestorePanel extends LightningElement {
         if (this.activeSubTab === 'history' && !this.deploymentHistoryLoaded) {
             this.loadDeploymentHistory();
         }
+        if (this.activeSubTab === 'backup' && !this.backupItemsLoaded) {
+            this.loadBackupItemsByPlan();
+        }
     }
 
     async loadDeploymentHistory() {
@@ -337,12 +353,6 @@ export default class BackupRestorePanel extends LightningElement {
             this.handleError(error);
         } finally {
             this.isLoading = false;
-        }
-    }
-
-    connectedCallback() {
-        if (this.planId) {
-            this.loadDeploymentHistory();
         }
     }
     

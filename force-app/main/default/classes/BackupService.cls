@@ -401,6 +401,110 @@ public with sharing class BackupService {
     }
     
     @AuraEnabled
+    public static BackupSummaryDto getBackupSummaryByPlan(String planId) {
+        List<DeploymentRun__c> runs = [
+            SELECT Id, BackupCreatedAt__c, BackupExpirationDate__c, 
+                   BackupNotificationSent__c, BackupItemCount__c
+            FROM DeploymentRun__c 
+            WHERE ChangePlan__c = :planId
+            AND BackupItemCount__c > 0
+            ORDER BY CreatedDate DESC
+        ];
+        
+        if (runs.isEmpty()) {
+            return null;
+        }
+        
+        BackupSummaryDto summary = new BackupSummaryDto();
+        summary.deploymentRunId = runs[0].Id;
+        summary.backupCreatedAt = runs[0].BackupCreatedAt__c;
+        summary.expirationDate = runs[0].BackupExpirationDate__c;
+        summary.notificationSent = runs[0].BackupNotificationSent__c;
+        
+        Set<Id> runIds = new Set<Id>();
+        for (DeploymentRun__c run : runs) {
+            runIds.add(run.Id);
+        }
+        
+        List<AggregateResult> statusCounts = [
+            SELECT RestoreStatus__c status, COUNT(Id) cnt
+            FROM BackupItem__c
+            WHERE DeploymentRun__c IN :runIds
+            GROUP BY RestoreStatus__c
+        ];
+        
+        summary.totalItems = 0;
+        summary.restoredCount = 0;
+        summary.pendingCount = 0;
+        
+        for (AggregateResult ar : statusCounts) {
+            String status = (String) ar.get('status');
+            Integer count = (Integer) ar.get('cnt');
+            summary.totalItems += count;
+            if (status == 'Restored') {
+                summary.restoredCount = count;
+            } else if (status == 'NotRestored') {
+                summary.pendingCount = count;
+            }
+        }
+        
+        return summary;
+    }
+    
+    @AuraEnabled
+    public static List<BackupItemDto> getBackupItemsByPlan(String planId) {
+        List<BackupItemDto> items = new List<BackupItemDto>();
+        
+        Set<Id> runIds = new Set<Id>();
+        for (DeploymentRun__c run : [
+            SELECT Id FROM DeploymentRun__c 
+            WHERE ChangePlan__c = :planId
+            AND BackupItemCount__c > 0
+        ]) {
+            runIds.add(run.Id);
+        }
+        
+        if (runIds.isEmpty()) {
+            return items;
+        }
+        
+        for (BackupItem__c item : [
+            SELECT Id, DeploymentRun__c, ChangeItem__c, ArtifactType__c, FullName__c,
+                   OriginalApiVersion__c, ContentDocumentId__c, MetadataDocumentId__c,
+                   RestoreStatus__c, BackupCreatedAt__c, RestoredAt__c, ContentHash__c,
+                   RelatedTestClassesJson__c
+            FROM BackupItem__c
+            WHERE DeploymentRun__c IN :runIds
+            ORDER BY FullName__c
+        ]) {
+            BackupItemDto dto = new BackupItemDto();
+            dto.id = item.Id;
+            dto.deploymentRunId = item.DeploymentRun__c;
+            dto.changeItemId = item.ChangeItem__c;
+            dto.artifactType = item.ArtifactType__c;
+            dto.fullName = item.FullName__c;
+            dto.originalApiVersion = item.OriginalApiVersion__c;
+            dto.contentDocumentId = item.ContentDocumentId__c;
+            dto.metadataDocumentId = item.MetadataDocumentId__c;
+            dto.restoreStatus = item.RestoreStatus__c;
+            dto.backupCreatedAt = item.BackupCreatedAt__c;
+            dto.restoredAt = item.RestoredAt__c;
+            dto.contentHash = item.ContentHash__c;
+            
+            if (String.isNotBlank(item.RelatedTestClassesJson__c)) {
+                dto.relatedTestClasses = (List<String>) JSON.deserialize(
+                    item.RelatedTestClassesJson__c, 
+                    List<String>.class
+                );
+            }
+            
+            items.add(dto);
+        }
+        
+        return items;
+    }
+    
+    @AuraEnabled
     public static String getBackupContent(String backupItemId) {
         BackupItem__c item = [
             SELECT ContentDocumentId__c
