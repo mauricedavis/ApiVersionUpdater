@@ -617,6 +617,105 @@ public with sharing class RestoreService {
         return result;
     }
     
+    public class VerifyRestoreResultDto {
+        @AuraEnabled public Boolean verified;
+        @AuraEnabled public Boolean markedRestored;
+        @AuraEnabled public String message;
+        @AuraEnabled public String currentContent;
+        @AuraEnabled public String backupContent;
+    }
+    
+    @AuraEnabled
+    public static VerifyRestoreResultDto verifyAndMarkRestored(String backupItemId) {
+        VerifyRestoreResultDto result = new VerifyRestoreResultDto();
+        
+        try {
+            BackupItem__c item = [
+                SELECT Id, ArtifactType__c, FullName__c
+                FROM BackupItem__c
+                WHERE Id = :backupItemId
+            ];
+            
+            String backupContent = getBackupContentByTitle(item.FullName__c);
+            Map<String, String> currentContentMap = getCurrentContent(item.ArtifactType__c, item.FullName__c);
+            String currentContent = currentContentMap.get('content');
+            
+            result.backupContent = backupContent;
+            result.currentContent = currentContent;
+            
+            String normalizedBackup = normalizeCode(backupContent);
+            String normalizedCurrent = normalizeCode(currentContent);
+            
+            if (normalizedBackup == normalizedCurrent) {
+                result.verified = true;
+                result.markedRestored = true;
+                result.message = item.FullName__c + ' has been verified and marked as restored.';
+                
+                try {
+                    logAuditEvent('RestoreCompleted', new Map<String, Object>{
+                        'backupItemId' => backupItemId,
+                        'fullName' => item.FullName__c,
+                        'success' => true,
+                        'method' => 'manual_verified'
+                    });
+                } catch (Exception e) {
+                    System.debug('Failed to log audit event: ' + e.getMessage());
+                }
+            } else {
+                result.verified = false;
+                result.markedRestored = false;
+                result.message = 'The current code does not match the backup. Please ensure you saved the restored code correctly.';
+            }
+            
+        } catch (Exception e) {
+            result.verified = false;
+            result.markedRestored = false;
+            result.message = 'Verification failed: ' + e.getMessage();
+        }
+        
+        return result;
+    }
+    
+    @AuraEnabled
+    public static VerifyRestoreResultDto markAsRestoredManually(String backupItemId) {
+        VerifyRestoreResultDto result = new VerifyRestoreResultDto();
+        
+        try {
+            BackupItem__c item = [
+                SELECT Id, ArtifactType__c, FullName__c
+                FROM BackupItem__c
+                WHERE Id = :backupItemId
+            ];
+            
+            result.verified = false;
+            result.markedRestored = true;
+            result.message = item.FullName__c + ' has been marked as restored (unverified).';
+            
+            try {
+                logAuditEvent('RestoreCompleted', new Map<String, Object>{
+                    'backupItemId' => backupItemId,
+                    'fullName' => item.FullName__c,
+                    'success' => true,
+                    'method' => 'manual_unverified'
+                });
+            } catch (Exception e) {
+                System.debug('Failed to log audit event: ' + e.getMessage());
+            }
+            
+        } catch (Exception e) {
+            result.verified = false;
+            result.markedRestored = false;
+            result.message = 'Failed to mark as restored: ' + e.getMessage();
+        }
+        
+        return result;
+    }
+    
+    private static String normalizeCode(String code) {
+        if (String.isBlank(code)) return '';
+        return code.replaceAll('\\s+', ' ').trim();
+    }
+    
     private static Integer countSuccesses(List<RestoreResultDto> results) {
         Integer count = 0;
         for (RestoreResultDto r : results) {

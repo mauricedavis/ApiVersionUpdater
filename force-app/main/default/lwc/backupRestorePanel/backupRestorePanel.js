@@ -14,6 +14,8 @@ import restoreItem from '@salesforce/apex/ApiVersionUpdaterController.restoreIte
 import getDiff from '@salesforce/apex/ApiVersionUpdaterController.getDiff';
 import getDeploymentHistory from '@salesforce/apex/ApiVersionUpdaterController.getDeploymentHistory';
 import getManualRestoreData from '@salesforce/apex/ApiVersionUpdaterController.getManualRestoreData';
+import verifyAndMarkRestored from '@salesforce/apex/ApiVersionUpdaterController.verifyAndMarkRestored';
+import markAsRestoredManually from '@salesforce/apex/ApiVersionUpdaterController.markAsRestoredManually';
 
 const COLUMNS = [
     { label: 'Name', fieldName: 'fullName', type: 'text', sortable: true },
@@ -304,6 +306,44 @@ export default class BackupRestorePanel extends LightningElement {
     handleOpenRestoreInSetup() {
         if (this.manualRestoreData && this.manualRestoreData.setupUrl) {
             window.open(this.manualRestoreData.setupUrl, '_blank');
+        }
+    }
+    
+    async handleVerifyRestore() {
+        this.isLoading = true;
+        try {
+            const result = await verifyAndMarkRestored({ backupItemId: this.manualRestoreData.backupItemId });
+            
+            if (result.verified && result.markedRestored) {
+                this.showToast('Restore Verified', result.message, 'success');
+                this.closeManualRestoreModal();
+                await this.refreshData();
+            } else {
+                this.showToast('Verification Failed', result.message, 'warning');
+            }
+        } catch (error) {
+            this.handleError(error);
+        } finally {
+            this.isLoading = false;
+        }
+    }
+    
+    async handleMarkRestoredManually() {
+        this.isLoading = true;
+        try {
+            const result = await markAsRestoredManually({ backupItemId: this.manualRestoreData.backupItemId });
+            
+            if (result.markedRestored) {
+                this.showToast('Marked as Restored', result.message, 'success');
+                this.closeManualRestoreModal();
+                await this.refreshData();
+            } else {
+                this.showToast('Error', result.message, 'error');
+            }
+        } catch (error) {
+            this.handleError(error);
+        } finally {
+            this.isLoading = false;
         }
     }
     

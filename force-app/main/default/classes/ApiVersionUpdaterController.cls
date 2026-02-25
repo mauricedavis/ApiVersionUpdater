@@ -212,6 +212,16 @@ public with sharing class ApiVersionUpdaterController {
         return RestoreService.getManualRestoreData(backupItemId);
     }
     
+    @AuraEnabled
+    public static RestoreService.VerifyRestoreResultDto verifyAndMarkRestored(String backupItemId) {
+        return RestoreService.verifyAndMarkRestored(backupItemId);
+    }
+    
+    @AuraEnabled
+    public static RestoreService.VerifyRestoreResultDto markAsRestoredManually(String backupItemId) {
+        return RestoreService.markAsRestoredManually(backupItemId);
+    }
+    
     // Backup Notification Schedule Methods
     
     @AuraEnabled

@@ -337,6 +337,31 @@
                     <div class="code-preview">
                         <pre><code>{manualRestoreData.backupContent}</code></pre>
                     </div>
+                    
+                    <div class="slds-box slds-box_xx-small slds-m-top_medium slds-theme_shade">
+                        <p class="slds-text-heading_small slds-m-bottom_small">Step 3: Confirm Restore</p>
+                        <p class="slds-text-body_small slds-m-bottom_small">After saving the code in Setup, click one of the buttons below:</p>
+                        <div class="slds-grid slds-gutters">
+                            <div class="slds-col">
+                                <lightning-button 
+                                    label="Verify & Mark Restored" 
+                                    variant="brand" 
+                                    onclick={handleVerifyRestore}
+                                    icon-name="utility:check"
+                                    title="Compares current code with backup to verify restore was successful">
+                                </lightning-button>
+                            </div>
+                            <div class="slds-col">
+                                <lightning-button 
+                                    label="Mark Restored (Skip Verify)" 
+                                    variant="neutral" 
+                                    onclick={handleMarkRestoredManually}
+                                    icon-name="utility:skip"
+                                    title="Mark as restored without verification">
+                                </lightning-button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <footer class="slds-modal__footer">
                     <lightning-button label="Close" onclick={closeManualRestoreModal}></lightning-button>
