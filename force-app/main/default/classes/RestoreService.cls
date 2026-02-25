@@ -26,10 +26,9 @@ public with sharing class RestoreService {
     public static List<RestoreResultDto> restoreAll(String deploymentRunId) {
         List<BackupItem__c> items = [
             SELECT Id, ArtifactType__c, FullName__c, ContentDocumentId__c, 
-                   MetadataDocumentId__c, OriginalApiVersion__c, RestoreStatus__c
+                   MetadataDocumentId__c, OriginalApiVersion__c
             FROM BackupItem__c
             WHERE DeploymentRun__c = :deploymentRunId
-            AND RestoreStatus__c = 'NotRestored'
         ];
         
         List<RestoreResultDto> results = new List<RestoreResultDto>();
@@ -52,8 +51,7 @@ public with sharing class RestoreService {
     public static RestoreResultDto restoreItem(String backupItemId) {
         BackupItem__c item = [
             SELECT Id, ArtifactType__c, FullName__c, ContentDocumentId__c, 
-                   MetadataDocumentId__c, OriginalApiVersion__c, RestoreStatus__c,
-                   DeploymentRun__c
+                   MetadataDocumentId__c, OriginalApiVersion__c, DeploymentRun__c
             FROM BackupItem__c
             WHERE Id = :backupItemId
         ];
@@ -75,32 +73,27 @@ public with sharing class RestoreService {
         result.fullName = item.FullName__c;
         
         try {
-            item.RestoreStatus__c = 'Restoring';
-            update item;
-            
             String backupContent = getBackupContent(item.ContentDocumentId__c);
             
             if (String.isBlank(backupContent)) {
-                throw new AuraHandledException('No backup content found');
+                throw new AuraHandledException('No backup content found for ' + item.FullName__c);
             }
             
             restoreContent(item.ArtifactType__c, item.FullName__c, backupContent);
-            
-            item.RestoreStatus__c = 'Restored';
-            item.RestoredAt__c = Datetime.now();
-            item.RestoreErrorDetails__c = null;
-            update item;
             
             result.success = true;
             result.restoredAt = Datetime.now();
             
         } catch (Exception e) {
-            item.RestoreStatus__c = 'Failed';
-            item.RestoreErrorDetails__c = e.getMessage() + '\n' + e.getStackTraceString();
-            update item;
+            System.debug('Restore error for ' + item.FullName__c + ': ' + e.getMessage());
+            System.debug('Stack trace: ' + e.getStackTraceString());
             
             result.success = false;
             result.errorMessage = e.getMessage();
+            
+            if (String.isBlank(result.errorMessage)) {
+                result.errorMessage = 'Restore failed: ' + e.getTypeName();
+            }
         }
         
         return result;
