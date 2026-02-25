@@ -796,12 +796,18 @@ export default class ApiVersionUpdater extends LightningElement {
                         console.log('Deployment finished with status:', details.status);
                         this.stopDeploymentPolling();
                         
-                        const plan = await getChangePlan({ planId });
-                        console.log('Updated plan:', plan);
-                        this.changePlan = plan;
+                        const [plan, items, sessionData] = await Promise.all([
+                            getChangePlan({ planId }),
+                            getChangeItems({ planId }),
+                            getCurrentSession()
+                        ]);
                         
-                        const items = await getChangeItems({ planId });
+                        console.log('Updated plan:', plan);
+                        console.log('Updated session:', sessionData);
+                        
+                        this.changePlan = plan;
                         this.changeItems = items;
+                        this.session = sessionData;
                         
                         const changePlanPanel = this.template.querySelector('c-change-plan-panel');
                         if (changePlanPanel) {

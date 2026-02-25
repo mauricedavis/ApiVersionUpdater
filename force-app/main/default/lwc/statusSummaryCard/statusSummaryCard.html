@@ -148,7 +148,7 @@
                             <div class="card-empty">No plan created</div>
                         </template>
                         
-                        <div class="card-action">
+                        <div class="card-action card-action-centered">
                             <template lwc:if={showDeployButton}>
                                 <lightning-button 
                                     variant="brand" 
@@ -163,7 +163,7 @@
                                     variant="neutral" 
                                     label="View Plan"
                                     onclick={handlePlanClick}
-                                    class="action-button">
+                                    class="centered-button">
                                 </lightning-button>
                             </template>
                         </div>
@@ -186,6 +186,15 @@
                             <div class="card-status">
                                 <span class={deploymentStatusClass}>{displayDeploymentStatus}</span>
                             </div>
+                            
+                            <!-- Progress bar when deployment is running -->
+                            <template lwc:if={isDeploymentRunning}>
+                                <div class="deployment-progress">
+                                    <lightning-progress-bar value={deploymentProgress} size="small" variant="circular"></lightning-progress-bar>
+                                    <div class="progress-label">Deploying...</div>
+                                </div>
+                            </template>
+                            
                             <template lwc:if={hasDeploymentStats}>
                                 <div class="card-stats">
                                     <span class="stat stat-success">{deploymentSuccessCount} updated</span>
@@ -205,14 +214,14 @@
                             <div class="card-empty">No deployment yet</div>
                         </template>
                         
-                        <div class="card-action">
+                        <div class="card-action card-action-centered">
                             <template lwc:if={showRestoreButton}>
                                 <lightning-button 
                                     variant="neutral" 
                                     label="Restore"
                                     icon-name="utility:undo"
                                     onclick={handleRestoreClick}
-                                    class="action-button">
+                                    class="centered-button">
                                 </lightning-button>
                             </template>
                             <template lwc:elseif={hasDeployment}>
@@ -220,7 +229,7 @@
                                     variant="neutral" 
                                     label="View Details"
                                     onclick={handleDeploymentClick}
-                                    class="action-button">
+                                    class="centered-button">
                                 </lightning-button>
                             </template>
                         </div>

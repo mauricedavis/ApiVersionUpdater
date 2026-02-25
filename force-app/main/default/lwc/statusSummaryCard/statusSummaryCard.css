@@ -249,6 +249,27 @@
     padding-top: 0.5rem;
 }
 
+.card-action-centered {
+    display: flex;
+    justify-content: center;
+}
+
+.centered-button {
+    display: inline-block;
+}
+
+.deployment-progress {
+    margin: 0.5rem 0;
+}
+
+.progress-label {
+    font-size: 0.75rem;
+    color: var(--slds-g-color-warning-base-50, #dd7a01);
+    text-align: center;
+    margin-top: 0.25rem;
+    font-weight: 500;
+}
+
 .button-group {
     display: flex;
     flex-wrap: wrap;

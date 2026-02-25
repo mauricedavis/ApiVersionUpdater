@@ -70,6 +70,24 @@ export default class StatusSummaryCard extends LightningElement {
         return status === 'Completed' || status === 'Failed';
     }
 
+    get isDeploymentRunning() {
+        const status = this.displayDeploymentStatus;
+        return status === 'Running' || status === 'Queued' || status === 'Processing';
+    }
+
+    get isDeploymentComplete() {
+        const status = this.displayDeploymentStatus;
+        return status === 'Completed' || status === 'Succeeded';
+    }
+
+    get deploymentProgress() {
+        const status = this.displayDeploymentStatus;
+        if (status === 'Queued') return 25;
+        if (status === 'Running' || status === 'Processing') return 60;
+        if (status === 'Completed' || status === 'Succeeded') return 100;
+        return 0;
+    }
+
     get isPlanReady() {
         const status = this.displayPlanStatus;
         return status === 'Draft' || status === 'Ready' || status === 'Validated';
