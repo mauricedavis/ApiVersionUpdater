@@ -588,10 +588,7 @@ public with sharing class DeploymentService {
             String endpoint = URL.getOrgDomainUrl().toExternalForm() + 
                 '/services/data/v65.0/tooling/sobjects/' + memberType;
             
-            Map<String, Object> metadata = new Map<String, Object>{
-                'apiVersion' => Double.valueOf(targetVersion),
-                'status' => 'Active'
-            };
+            Map<String, Object> metadata = buildMetadataForType(artifactType, targetVersion, fullName);
             
             Map<String, Object> member = new Map<String, Object>{
                 'MetadataContainerId' => containerId,
@@ -738,6 +735,41 @@ public with sharing class DeploymentService {
             }
             
             return 'Failed to retrieve error details';
+        }
+        
+        private Map<String, Object> buildMetadataForType(String artifactType, Decimal targetVersion, String fullName) {
+            Map<String, Object> metadata = new Map<String, Object>();
+            metadata.put('apiVersion', Double.valueOf(targetVersion));
+            
+            switch on artifactType {
+                when 'ApexClass', 'ApexTrigger' {
+                    metadata.put('status', 'Active');
+                }
+                when 'ApexPage' {
+                    List<ApexPage> pages = [SELECT Name, Description FROM ApexPage WHERE Name = :fullName LIMIT 1];
+                    if (!pages.isEmpty()) {
+                        metadata.put('label', pages[0].Name);
+                        if (String.isNotBlank(pages[0].Description)) {
+                            metadata.put('description', pages[0].Description);
+                        }
+                    } else {
+                        metadata.put('label', fullName);
+                    }
+                }
+                when 'ApexComponent' {
+                    List<ApexComponent> components = [SELECT Name, Description FROM ApexComponent WHERE Name = :fullName LIMIT 1];
+                    if (!components.isEmpty()) {
+                        metadata.put('label', components[0].Name);
+                        if (String.isNotBlank(components[0].Description)) {
+                            metadata.put('description', components[0].Description);
+                        }
+                    } else {
+                        metadata.put('label', fullName);
+                    }
+                }
+            }
+            
+            return metadata;
         }
         
         private String getMemberType(String artifactType) {
