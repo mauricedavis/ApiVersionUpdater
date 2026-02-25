@@ -249,6 +249,13 @@
     padding-top: 0.5rem;
 }
 
+.button-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    justify-content: center;
+}
+
 .action-button {
     width: 100%;
 }

@@ -82,6 +82,10 @@ export default class StatusSummaryCard extends LightningElement {
     get showCreatePlanButton() {
         return this.hasFindings && !this.hasPlan && this.isScanComplete;
     }
+    
+    get showReviewButtons() {
+        return this.isScanComplete && this.hasFindings;
+    }
 
     get showDeployButton() {
         return this.hasPlan && this.isPlanReady && !this.hasDeployment;
