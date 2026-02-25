@@ -133,6 +133,39 @@ public with sharing class RestoreService {
             throw new AuraHandledException('Could not find ' + artifactType + ': ' + fullName);
         }
         
+        if (artifactType == 'ApexClass' || artifactType == 'ApexTrigger') {
+            restoreViaMetadataContainer(artifactType, fullName, artifactId, content);
+        } else {
+            restoreViaPatch(artifactType, artifactId, content);
+        }
+    }
+    
+    private static void restoreViaMetadataContainer(String artifactType, String fullName, String artifactId, String content) {
+        String baseUrl = URL.getOrgDomainUrl().toExternalForm();
+        String sessionId = UserInfo.getSessionId();
+        
+        String containerId = createMetadataContainer(baseUrl, sessionId);
+        
+        try {
+            String memberType = artifactType == 'ApexClass' ? 'ApexClassMember' : 'ApexTriggerMember';
+            Decimal currentApiVersion = getCurrentApiVersion(artifactType, fullName);
+            
+            addMemberToContainer(baseUrl, sessionId, containerId, memberType, artifactId, content, currentApiVersion);
+            
+            String asyncRequestId = deployContainer(baseUrl, sessionId, containerId);
+            
+            String status = pollForCompletion(baseUrl, sessionId, asyncRequestId);
+            
+            if (status != 'Completed') {
+                String errorDetails = getContainerErrorDetails(baseUrl, sessionId, asyncRequestId);
+                throw new AuraHandledException('Restore deployment failed: ' + errorDetails);
+            }
+        } finally {
+            deleteContainer(baseUrl, sessionId, containerId);
+        }
+    }
+    
+    private static void restoreViaPatch(String artifactType, String artifactId, String content) {
         String endpoint = getToolingApiEndpoint(artifactType, artifactId);
         String bodyField = getBodyFieldName(artifactType);
         
@@ -152,6 +185,174 @@ public with sharing class RestoreService {
         
         if (res.getStatusCode() != 200 && res.getStatusCode() != 204) {
             throw new AuraHandledException('Failed to restore: ' + res.getBody());
+        }
+    }
+    
+    private static String createMetadataContainer(String baseUrl, String sessionId) {
+        String endpoint = baseUrl + '/services/data/v65.0/tooling/sobjects/MetadataContainer';
+        
+        Map<String, Object> container = new Map<String, Object>{
+            'Name' => 'Restore_' + String.valueOf(System.currentTimeMillis())
+        };
+        
+        HttpRequest req = new HttpRequest();
+        req.setEndpoint(endpoint);
+        req.setMethod('POST');
+        req.setHeader('Authorization', 'Bearer ' + sessionId);
+        req.setHeader('Content-Type', 'application/json');
+        req.setBody(JSON.serialize(container));
+        
+        Http http = new Http();
+        HttpResponse res = http.send(req);
+        
+        if (res.getStatusCode() == 201) {
+            Map<String, Object> result = (Map<String, Object>) JSON.deserializeUntyped(res.getBody());
+            return (String) result.get('id');
+        }
+        
+        throw new AuraHandledException('Failed to create restore container: ' + res.getBody());
+    }
+    
+    private static Decimal getCurrentApiVersion(String artifactType, String fullName) {
+        if (artifactType == 'ApexClass') {
+            List<ApexClass> items = [SELECT ApiVersion FROM ApexClass WHERE Name = :fullName LIMIT 1];
+            return items.isEmpty() ? 56.0 : items[0].ApiVersion;
+        } else {
+            List<ApexTrigger> items = [SELECT ApiVersion FROM ApexTrigger WHERE Name = :fullName LIMIT 1];
+            return items.isEmpty() ? 56.0 : items[0].ApiVersion;
+        }
+    }
+    
+    private static void addMemberToContainer(String baseUrl, String sessionId, String containerId, 
+                                             String memberType, String contentEntityId, String body, 
+                                             Decimal apiVersion) {
+        String endpoint = baseUrl + '/services/data/v65.0/tooling/sobjects/' + memberType;
+        
+        Map<String, Object> metadata = new Map<String, Object>{
+            'apiVersion' => Double.valueOf(apiVersion),
+            'status' => 'Active'
+        };
+        
+        Map<String, Object> member = new Map<String, Object>{
+            'MetadataContainerId' => containerId,
+            'ContentEntityId' => contentEntityId,
+            'Body' => body,
+            'Metadata' => metadata
+        };
+        
+        HttpRequest req = new HttpRequest();
+        req.setEndpoint(endpoint);
+        req.setMethod('POST');
+        req.setHeader('Authorization', 'Bearer ' + sessionId);
+        req.setHeader('Content-Type', 'application/json');
+        req.setBody(JSON.serialize(member));
+        
+        Http http = new Http();
+        HttpResponse res = http.send(req);
+        
+        if (res.getStatusCode() != 201) {
+            throw new AuraHandledException('Failed to add member for restore: ' + res.getBody());
+        }
+    }
+    
+    private static String deployContainer(String baseUrl, String sessionId, String containerId) {
+        String endpoint = baseUrl + '/services/data/v65.0/tooling/sobjects/ContainerAsyncRequest';
+        
+        Map<String, Object> asyncRequest = new Map<String, Object>{
+            'MetadataContainerId' => containerId,
+            'IsCheckOnly' => false,
+            'IsRunTests' => false
+        };
+        
+        HttpRequest req = new HttpRequest();
+        req.setEndpoint(endpoint);
+        req.setMethod('POST');
+        req.setHeader('Authorization', 'Bearer ' + sessionId);
+        req.setHeader('Content-Type', 'application/json');
+        req.setBody(JSON.serialize(asyncRequest));
+        
+        Http http = new Http();
+        HttpResponse res = http.send(req);
+        
+        if (res.getStatusCode() == 201) {
+            Map<String, Object> result = (Map<String, Object>) JSON.deserializeUntyped(res.getBody());
+            return (String) result.get('id');
+        }
+        
+        throw new AuraHandledException('Failed to deploy restore container: ' + res.getBody());
+    }
+    
+    private static String pollForCompletion(String baseUrl, String sessionId, String asyncRequestId) {
+        String endpoint = baseUrl + '/services/data/v65.0/tooling/sobjects/ContainerAsyncRequest/' + asyncRequestId;
+        
+        Integer maxAttempts = 30;
+        Integer attempt = 0;
+        String status = 'Queued';
+        
+        while (attempt < maxAttempts && (status == 'Queued' || status == 'Pending')) {
+            HttpRequest req = new HttpRequest();
+            req.setEndpoint(endpoint);
+            req.setMethod('GET');
+            req.setHeader('Authorization', 'Bearer ' + sessionId);
+            req.setHeader('Content-Type', 'application/json');
+            
+            Http http = new Http();
+            HttpResponse res = http.send(req);
+            
+            if (res.getStatusCode() == 200) {
+                Map<String, Object> result = (Map<String, Object>) JSON.deserializeUntyped(res.getBody());
+                status = (String) result.get('State');
+                
+                if (status == 'Queued' || status == 'Pending') {
+                    attempt++;
+                }
+            } else {
+                throw new AuraHandledException('Failed to poll restore status: ' + res.getBody());
+            }
+        }
+        
+        return status;
+    }
+    
+    private static String getContainerErrorDetails(String baseUrl, String sessionId, String asyncRequestId) {
+        String endpoint = baseUrl + '/services/data/v65.0/tooling/sobjects/ContainerAsyncRequest/' + asyncRequestId;
+        
+        HttpRequest req = new HttpRequest();
+        req.setEndpoint(endpoint);
+        req.setMethod('GET');
+        req.setHeader('Authorization', 'Bearer ' + sessionId);
+        req.setHeader('Content-Type', 'application/json');
+        
+        Http http = new Http();
+        HttpResponse res = http.send(req);
+        
+        if (res.getStatusCode() == 200) {
+            Map<String, Object> result = (Map<String, Object>) JSON.deserializeUntyped(res.getBody());
+            String state = (String) result.get('State');
+            String errorMsg = (String) result.get('ErrorMsg');
+            
+            if (String.isNotBlank(errorMsg)) {
+                return errorMsg;
+            }
+            return 'Deployment ended with state: ' + state;
+        }
+        
+        return 'Failed to retrieve error details';
+    }
+    
+    private static void deleteContainer(String baseUrl, String sessionId, String containerId) {
+        try {
+            String endpoint = baseUrl + '/services/data/v65.0/tooling/sobjects/MetadataContainer/' + containerId;
+            
+            HttpRequest req = new HttpRequest();
+            req.setEndpoint(endpoint);
+            req.setMethod('DELETE');
+            req.setHeader('Authorization', 'Bearer ' + sessionId);
+            
+            Http http = new Http();
+            http.send(req);
+        } catch (Exception e) {
+            System.debug('Failed to delete restore container: ' + e.getMessage());
         }
     }
     
