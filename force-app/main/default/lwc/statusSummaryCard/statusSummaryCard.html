@@ -1,33 +1,19 @@
 <template>
-    <lightning-card title="Current Session" icon-name="utility:database">
-        <div slot="actions">
-            <template lwc:if={showClearButton}>
-                <lightning-button 
-                    variant="neutral"
-                    label="New Session"
-                    icon-name="utility:add"
-                    onclick={handleClearSession}>
-                </lightning-button>
-            </template>
-        </div>
-
-        <div class="slds-p-horizontal_medium slds-p-bottom_small">
-            <div class="workflow-cards">
+        <div class="workflow-cards">
                 
                 <!-- 1. Scan Card -->
                 <div class="workflow-step">
                     <div class={scanCardClass} onclick={handleScanClick}>
-                        <div class="card-header">
+                        <div class="card-header-inline">
                             <div class="card-icon scan-icon">
-                                <lightning-icon icon-name="utility:search" size="small"></lightning-icon>
+                                <lightning-icon icon-name="utility:search" size="x-small"></lightning-icon>
                             </div>
+                            <span class="card-title-inline">Scan</span>
                             <div class={scanStepBadgeClass}>1</div>
                         </div>
-                        <div class="card-title">Scan</div>
                         
-                        <!-- Target API Badge -->
                         <div class="target-api-badge">
-                            <span class="target-badge">Target: API {targetVersion}</span>
+                            <span class="target-badge">TARGET: API {targetVersion}</span>
                         </div>
                         
                         <template lwc:if={hasScan}>
@@ -78,13 +64,13 @@
                 <!-- 2. Review Card -->
                 <div class="workflow-step">
                     <div class={findingsCardClass} onclick={handleFindingsClick}>
-                        <div class="card-header">
+                        <div class="card-header-inline">
                             <div class="card-icon findings-icon">
-                                <lightning-icon icon-name="utility:preview" size="small"></lightning-icon>
+                                <lightning-icon icon-name="utility:preview" size="x-small"></lightning-icon>
                             </div>
+                            <span class="card-title-inline">Review</span>
                             <div class={findingsStepBadgeClass}>2</div>
                         </div>
-                        <div class="card-title">Review</div>
                         
                         <template lwc:if={isScanComplete}>
                             <div class="card-stats-large">
@@ -120,13 +106,13 @@
                 <!-- 3. Plan Card -->
                 <div class="workflow-step">
                     <div class={planCardClass} onclick={handlePlanClick}>
-                        <div class="card-header">
+                        <div class="card-header-inline">
                             <div class="card-icon plan-icon">
-                                <lightning-icon icon-name="utility:edit" size="small"></lightning-icon>
+                                <lightning-icon icon-name="utility:edit" size="x-small"></lightning-icon>
                             </div>
+                            <span class="card-title-inline">Plan</span>
                             <div class={planStepBadgeClass}>3</div>
                         </div>
-                        <div class="card-title">Plan</div>
                         
                         <template lwc:if={hasPlan}>
                             <div class="card-name">{displayPlanName}</div>
@@ -167,13 +153,13 @@
                 <!-- 4. Deploy Card -->
                 <div class="workflow-step workflow-step-last">
                     <div class={deploymentCardClass} onclick={handleDeploymentClick}>
-                        <div class="card-header">
+                        <div class="card-header-inline">
                             <div class="card-icon deployment-icon">
-                                <lightning-icon icon-name="utility:upload" size="small"></lightning-icon>
+                                <lightning-icon icon-name="utility:upload" size="x-small"></lightning-icon>
                             </div>
+                            <span class="card-title-inline">Deploy</span>
                             <div class={deployStepBadgeClass}>4</div>
                         </div>
-                        <div class="card-title">Deploy</div>
                         
                         <template lwc:if={hasDeployment}>
                             <div class="card-status">
@@ -230,6 +216,4 @@
                 </div>
 
             </div>
-        </div>
-    </lightning-card>
 </template>

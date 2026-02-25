@@ -2,6 +2,11 @@
     display: block;
 }
 
+.header-title-area {
+    display: flex;
+    align-items: center;
+}
+
 .slds-badge_lightest {
     background-color: #f3f3f3;
     color: #080707;

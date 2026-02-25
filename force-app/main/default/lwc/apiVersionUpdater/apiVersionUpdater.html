@@ -1,14 +1,22 @@
 <template>
-    <lightning-card title="API Version Updater" icon-name="custom:custom63">
-        <div slot="actions">
+    <lightning-card icon-name="custom:custom63">
+        <div slot="title" class="header-title-area">
+            <lightning-button 
+                variant="brand"
+                label="New Session"
+                icon-name="utility:add"
+                onclick={handleClearSession}
+                class="slds-m-right_medium">
+            </lightning-button>
             <lightning-badge label={orgContext.orgName} class="slds-m-right_small"></lightning-badge>
             <lightning-badge label={orgTypeLabel} class={orgTypeBadgeClass}></lightning-badge>
+        </div>
+        <div slot="actions">
             <lightning-button-icon 
                 icon-name="utility:settings" 
                 alternative-text="Settings"
                 title="Settings"
-                onclick={handleSettingsClick}
-                class="slds-m-left_small">
+                onclick={handleSettingsClick}>
             </lightning-button-icon>
             <lightning-button-icon 
                 icon-name="utility:refresh" 
