@@ -82,7 +82,7 @@ export default class ScanPanel extends LightningElement {
 
     generateApiVersionOptions() {
         const options = [];
-        for (let i = 65; i >= 45; i--) {
+        for (let i = 65; i >= 21; i--) {
             options.push({ label: `API ${i}.0`, value: `${i}.0` });
         }
         this.apiVersionOptions = options;

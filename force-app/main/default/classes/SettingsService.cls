@@ -126,7 +126,7 @@ public with sharing class SettingsService {
     @AuraEnabled(cacheable=true)
     public static List<String> getAvailableApiVersions() {
         List<String> versions = new List<String>();
-        for (Integer i = 65; i >= 45; i--) {
+        for (Integer i = 65; i >= 21; i--) {
             versions.add(String.valueOf(i) + '.0');
         }
         return versions;
