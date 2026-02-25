@@ -89,42 +89,37 @@
                         <template lwc:if={isScanComplete}>
                             <div class="card-stats-large">
                                 <div class="big-stat">
-                                    <span class="big-number">{findingsCount}</span>
-                                    <span class="big-label">findings</span>
+                                    <span class="big-number">{componentsNeedingUpgrade}</span>
+                                    <span class="big-label">components</span>
                                 </div>
                             </div>
-                            <div class="card-stats">
-                                <span class="stat">{componentsNeedingUpgrade} components</span>
-                                <template lwc:if={alertsCount}>
+                            <template lwc:if={alertsCount}>
+                                <div class="card-stats">
                                     <span class="stat stat-alert">{alertsCount} alerts</span>
-                                </template>
-                            </div>
+                                </div>
+                            </template>
                         </template>
                         <template lwc:else>
                             <div class="card-empty">Complete a scan to review</div>
                         </template>
                         
-                        <div class="card-action">
-                            <template lwc:if={showReviewButtons}>
-                                <div class="button-group">
+                        <template lwc:if={showReviewButtons}>
+                            <div class="card-action-buttons">
+                                <lightning-button 
+                                    variant="neutral" 
+                                    label="View Findings"
+                                    onclick={handleFindingsClick}>
+                                </lightning-button>
+                                <template lwc:if={showCreatePlanButton}>
                                     <lightning-button 
-                                        variant="neutral" 
-                                        label="View Findings"
-                                        onclick={handleFindingsClick}
-                                        class="action-button slds-m-right_x-small">
+                                        variant="brand" 
+                                        label="Create Plan"
+                                        icon-name="utility:edit"
+                                        onclick={handleCreatePlan}>
                                     </lightning-button>
-                                    <template lwc:if={showCreatePlanButton}>
-                                        <lightning-button 
-                                            variant="brand" 
-                                            label="Create Plan"
-                                            icon-name="utility:edit"
-                                            onclick={handleCreatePlan}
-                                            class="action-button">
-                                        </lightning-button>
-                                    </template>
-                                </div>
-                            </template>
-                        </div>
+                                </template>
+                            </div>
+                        </template>
                     </div>
                     <div class={connector2Class}></div>
                 </div>
