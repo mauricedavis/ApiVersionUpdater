@@ -717,7 +717,8 @@ User u = new User(Username = uniqueValue + '@test.com', ...);`
 
     get canValidate() {
         const status = this.changePlan?.status;
-        return (status === 'Draft' || status === 'Ready') && 
+        const validStatuses = ['Draft', 'Ready', 'Validated', 'Deployed', 'Failed'];
+        return validStatuses.includes(status) && 
                this.eligibleSelectedCount > 0 && 
                !this.isValidating;
     }

@@ -287,7 +287,9 @@ export default class ApiVersionUpdater extends LightningElement {
     }
 
     get currentPlanStatus() {
-        return this.changePlan?.status || '';
+        const status = this.changePlan?.status || '';
+        console.log('currentPlanStatus getter returning:', status);
+        return status;
     }
 
     get changeItemsCount() {
@@ -295,7 +297,9 @@ export default class ApiVersionUpdater extends LightningElement {
     }
 
     get currentDeploymentStatus() {
-        return this.deploymentRunStatus || this.session?.currentDeploymentRunStatus || '';
+        const status = this.deploymentRunStatus || this.session?.currentDeploymentRunStatus || '';
+        console.log('currentDeploymentStatus getter returning:', status, '(deploymentRunStatus:', this.deploymentRunStatus, ')');
+        return status;
     }
 
     get noChangePlan() {
@@ -776,18 +780,24 @@ export default class ApiVersionUpdater extends LightningElement {
     
     startDeploymentPolling(runId, planId) {
         this.stopDeploymentPolling();
+        console.log('Starting deployment polling for runId:', runId);
         
         this.deploymentPollingInterval = setInterval(async () => {
             try {
+                console.log('Polling deployment status...');
                 const details = await getDeploymentRunDetails({ runId });
+                console.log('Deployment details:', details);
                 
                 if (details) {
+                    console.log('Updating deploymentRunStatus to:', details.status);
                     this.deploymentRunStatus = details.status;
                     
                     if (details.status === 'Completed' || details.status === 'Failed') {
+                        console.log('Deployment finished with status:', details.status);
                         this.stopDeploymentPolling();
                         
                         const plan = await getChangePlan({ planId });
+                        console.log('Updated plan:', plan);
                         this.changePlan = plan;
                         
                         const items = await getChangeItems({ planId });
