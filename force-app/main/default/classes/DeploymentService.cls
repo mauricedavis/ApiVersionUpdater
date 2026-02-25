@@ -1,5 +1,7 @@
 public with sharing class DeploymentService {
     
+    public class DeploymentException extends Exception {}
+    
     public class ChangePlanDto {
         @AuraEnabled public String id;
         @AuraEnabled public String status;
@@ -565,7 +567,7 @@ public with sharing class DeploymentService {
                 return (String) result.get('id');
             }
             
-            throw new AuraHandledException('Failed to create metadata container: ' + res.getBody());
+            throw new DeploymentException('Failed to create metadata container: ' + res.getBody());
         }
         
         private void addMemberToContainer(String containerId, String artifactType, 
@@ -574,13 +576,13 @@ public with sharing class DeploymentService {
             String contentEntityId = getContentEntityId(artifactType, fullName);
             
             if (String.isBlank(contentEntityId)) {
-                throw new AuraHandledException('Component not found: ' + fullName);
+                throw new DeploymentException('Component not found: ' + fullName);
             }
             
             String currentBody = getComponentBody(artifactType, fullName);
             
             if (String.isBlank(currentBody)) {
-                throw new AuraHandledException('Could not retrieve body for: ' + fullName);
+                throw new DeploymentException('Could not retrieve body for: ' + fullName);
             }
             
             String endpoint = URL.getOrgDomainUrl().toExternalForm() + 
@@ -612,7 +614,7 @@ public with sharing class DeploymentService {
             
             if (res.getStatusCode() != 201) {
                 String errorMsg = parseErrorMessage(res.getBody());
-                throw new AuraHandledException('Add member failed (' + res.getStatusCode() + '): ' + errorMsg);
+                throw new DeploymentException('Add member failed (' + res.getStatusCode() + '): ' + errorMsg);
             }
         }
         
@@ -670,7 +672,7 @@ public with sharing class DeploymentService {
                 return (String) result.get('id');
             }
             
-            throw new AuraHandledException('Failed to deploy container (' + res.getStatusCode() + '): ' + res.getBody());
+            throw new DeploymentException('Failed to deploy container (' + res.getStatusCode() + '): ' + res.getBody());
         }
         
         private String pollForCompletion(String asyncRequestId) {
@@ -699,7 +701,7 @@ public with sharing class DeploymentService {
                         attempt++;
                     }
                 } else {
-                    throw new AuraHandledException('Failed to poll deployment status: ' + res.getBody());
+                    throw new DeploymentException('Failed to poll deployment status: ' + res.getBody());
                 }
             }
             
@@ -753,7 +755,7 @@ public with sharing class DeploymentService {
                     return 'ApexComponentMember';
                 }
                 when else {
-                    throw new AuraHandledException('Unsupported artifact type: ' + artifactType);
+                    throw new DeploymentException('Unsupported artifact type: ' + artifactType);
                 }
             }
         }
