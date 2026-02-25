@@ -275,14 +275,29 @@ export default class BackupRestorePanel extends LightningElement {
         this.codeCopied = false;
     }
     
-    async handleCopyRestoreCode() {
+    handleCopyRestoreCode() {
         try {
-            await navigator.clipboard.writeText(this.manualRestoreData.backupContent);
-            this.codeCopied = true;
-            this.showToast('Copied', 'Code copied to clipboard', 'success');
+            const textArea = document.createElement('textarea');
+            textArea.value = this.manualRestoreData.backupContent;
+            textArea.style.position = 'fixed';
+            textArea.style.left = '-9999px';
+            textArea.style.top = '0';
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            
+            const successful = document.execCommand('copy');
+            document.body.removeChild(textArea);
+            
+            if (successful) {
+                this.codeCopied = true;
+                this.showToast('Copied', 'Code copied to clipboard', 'success');
+            } else {
+                this.showToast('Copy Failed', 'Please manually select and copy the code from the preview below', 'warning');
+            }
         } catch (error) {
             console.error('Copy failed:', error);
-            this.showToast('Error', 'Failed to copy to clipboard', 'error');
+            this.showToast('Copy Failed', 'Please manually select and copy the code from the preview below', 'warning');
         }
     }
     
