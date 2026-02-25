@@ -247,15 +247,15 @@ export default class ApiVersionUpdater extends LightningElement {
     }
 
     get showReviewView() {
-        return this.activeView === 'review' || this.workflowStep === 2;
+        return this.activeView === 'review' || (this.workflowStep === 1 && !this.isScanRunning);
     }
 
     get showPlanView() {
-        return this.activeView === 'plan' || this.workflowStep === 3;
+        return this.activeView === 'plan' || this.workflowStep === 2;
     }
 
     get showDeployView() {
-        return this.activeView === 'deploy' || this.workflowStep === 4;
+        return this.activeView === 'deploy' || this.workflowStep === 3;
     }
 
     get currentScanName() {
@@ -427,7 +427,6 @@ export default class ApiVersionUpdater extends LightningElement {
         const completed = [];
         if (this.workflowStep >= 2) completed.push(1);
         if (this.workflowStep >= 3) completed.push(2);
-        if (this.workflowStep >= 4) completed.push(3);
         this.completedSteps = completed;
     }
     
@@ -591,7 +590,7 @@ export default class ApiVersionUpdater extends LightningElement {
                     this.recentScans = scans;
 
                     if (status.status === 'Completed') {
-                        this.workflowStep = 2;
+                        this.workflowStep = 1;
                         this.activeView = 'review';
                         this.updateCompletedSteps();
                         this.showToast('Scan Complete', `Found ${status.findingsCount} findings`, 'success');
@@ -692,7 +691,7 @@ export default class ApiVersionUpdater extends LightningElement {
             this.changeItems = items;
             this.activeTab = 'changeplan';
             this.activeView = 'plan';
-            this.workflowStep = 3;
+            this.workflowStep = 2;
             this.updateCompletedSteps();
             
             this.session = await updateSessionPlan({ planId });
@@ -756,7 +755,7 @@ export default class ApiVersionUpdater extends LightningElement {
             this.currentDeploymentRunId = runId;
             this.deploymentRunStatus = 'Queued';
             this.hasBackup = createBackup;
-            this.workflowStep = 4;
+            this.workflowStep = 3;
             this.activeView = 'deploy';
             this.updateCompletedSteps();
             
@@ -895,7 +894,7 @@ export default class ApiVersionUpdater extends LightningElement {
                 this.currentDeploymentRunId = runId;
                 this.deploymentRunStatus = 'Queued';
                 this.hasBackup = true;
-                this.workflowStep = 4;
+                this.workflowStep = 3;
                 this.activeView = 'deploy';
                 this.updateCompletedSteps();
                 
@@ -1036,7 +1035,7 @@ export default class ApiVersionUpdater extends LightningElement {
                 
                 if (scanStatus.status === 'Completed' || scanStatus.status === 'Failed') {
                     await this.loadScanResults(row.scanId);
-                    this.workflowStep = 2;
+                    this.workflowStep = 1;
                     this.activeView = 'review';
                 } else {
                     this.workflowStep = 1;
@@ -1138,7 +1137,7 @@ export default class ApiVersionUpdater extends LightningElement {
             
             if (scanStatus.status === 'Completed' || scanStatus.status === 'Failed') {
                 await this.loadScanResults(id);
-                this.workflowStep = 2;
+                this.workflowStep = 1;
                 this.activeView = 'review';
             } else {
                 this.workflowStep = 1;
@@ -1184,9 +1183,9 @@ export default class ApiVersionUpdater extends LightningElement {
             
             if (this.session?.currentDeploymentRunId) {
                 this.currentDeploymentRunId = this.session.currentDeploymentRunId;
-                this.workflowStep = 4;
-            } else {
                 this.workflowStep = 3;
+            } else {
+                this.workflowStep = 2;
             }
             this.updateCompletedSteps();
             

@@ -1,7 +1,7 @@
 <template>
         <div class="workflow-cards">
                 
-                <!-- 1. Scan Card -->
+                <!-- 1. Scan Card (combined Scan & Review) -->
                 <div class="workflow-step">
                     <div class={scanCardClass} onclick={handleScanClick}>
                         <template lwc:if={isScanSelected}>
@@ -18,9 +18,6 @@
                                 <div class="step-badge step-badge-complete">
                                     <lightning-icon icon-name="utility:check" size="xx-small" variant="inverse"></lightning-icon>
                                 </div>
-                            </template>
-                            <template lwc:else>
-                                <div class={scanStepBadgeClass}>1</div>
                             </template>
                         </div>
                         
@@ -44,17 +41,8 @@
                             <div class="card-empty">No active scan</div>
                         </template>
                         
-                        <div class="card-action">
-                            <template lwc:if={showStartScanButton}>
-                                <lightning-button 
-                                    variant="brand" 
-                                    label="Start Scan"
-                                    icon-name="utility:search"
-                                    onclick={handleStartScan}
-                                    class="action-button">
-                                </lightning-button>
-                            </template>
-                            <template lwc:elseif={isScanRunning}>
+                        <div class="card-action card-action-centered">
+                            <template lwc:if={isScanRunning}>
                                 <lightning-button 
                                     variant="destructive" 
                                     label="Cancel"
@@ -62,10 +50,18 @@
                                     class="action-button">
                                 </lightning-button>
                             </template>
+                            <template lwc:elseif={showCreatePlanButton}>
+                                <lightning-button 
+                                    variant="brand" 
+                                    label="Create Plan"
+                                    icon-name="utility:edit"
+                                    onclick={handleCreatePlan}>
+                                </lightning-button>
+                            </template>
                             <template lwc:elseif={isScanComplete}>
                                 <div class="scan-complete-hint">
                                     <lightning-icon icon-name="utility:forward" size="xx-small"></lightning-icon>
-                                    <span>Review findings</span>
+                                    <span>Create a plan to proceed</span>
                                 </div>
                             </template>
                         </div>
@@ -73,61 +69,7 @@
                     <div class={connector1Class}></div>
                 </div>
 
-                <!-- 2. Review Card -->
-                <div class="workflow-step">
-                    <div class={findingsCardClass} onclick={handleFindingsClick}>
-                        <template lwc:if={isReviewSelected}>
-                            <div class="selected-check">
-                                <lightning-icon icon-name="utility:check" size="xx-small" variant="inverse"></lightning-icon>
-                            </div>
-                        </template>
-                        <div class="card-header-inline">
-                            <div class="card-icon findings-icon">
-                                <lightning-icon icon-name="utility:preview" size="x-small"></lightning-icon>
-                            </div>
-                            <span class="card-title-inline">Review</span>
-                            <template lwc:if={isReviewStepComplete}>
-                                <div class="step-badge step-badge-complete">
-                                    <lightning-icon icon-name="utility:check" size="xx-small" variant="inverse"></lightning-icon>
-                                </div>
-                            </template>
-                            <template lwc:else>
-                                <div class={findingsStepBadgeClass}>2</div>
-                            </template>
-                        </div>
-                        
-                        <template lwc:if={isScanComplete}>
-                            <div class="card-stats-large">
-                                <div class="big-stat">
-                                    <span class="big-number">{componentsNeedingUpgrade}</span>
-                                    <span class="big-label">components</span>
-                                </div>
-                            </div>
-                            <template lwc:if={alertsCount}>
-                                <div class="card-stats">
-                                    <span class="stat stat-alert">{alertsCount} alerts</span>
-                                </div>
-                            </template>
-                        </template>
-                        <template lwc:else>
-                            <div class="card-empty">Complete a scan to review</div>
-                        </template>
-                        
-                        <template lwc:if={showCreatePlanButton}>
-                            <div class="card-action-buttons">
-                                <lightning-button 
-                                    variant="brand" 
-                                    label="Create Plan"
-                                    icon-name="utility:edit"
-                                    onclick={handleCreatePlan}>
-                                </lightning-button>
-                            </div>
-                        </template>
-                    </div>
-                    <div class={connector2Class}></div>
-                </div>
-
-                <!-- 3. Plan Card -->
+                <!-- 2. Plan Card -->
                 <div class="workflow-step">
                     <div class={planCardClass} onclick={handlePlanClick}>
                         <template lwc:if={isPlanSelected}>
@@ -144,9 +86,6 @@
                                 <div class="step-badge step-badge-complete">
                                     <lightning-icon icon-name="utility:check" size="xx-small" variant="inverse"></lightning-icon>
                                 </div>
-                            </template>
-                            <template lwc:else>
-                                <div class={planStepBadgeClass}>3</div>
                             </template>
                         </div>
                         
@@ -174,10 +113,10 @@
                             </div>
                         </template>
                     </div>
-                    <div class={connector3Class}></div>
+                    <div class={connector2Class}></div>
                 </div>
 
-                <!-- 4. Deploy Card -->
+                <!-- 3. Deploy Card -->
                 <div class="workflow-step workflow-step-last">
                     <div class={deploymentCardClass} onclick={handleDeploymentClick}>
                         <template lwc:if={isDeploySelected}>
@@ -194,9 +133,6 @@
                                 <div class="step-badge step-badge-complete">
                                     <lightning-icon icon-name="utility:check" size="xx-small" variant="inverse"></lightning-icon>
                                 </div>
-                            </template>
-                            <template lwc:else>
-                                <div class={deployStepBadgeClass}>4</div>
                             </template>
                         </div>
                         

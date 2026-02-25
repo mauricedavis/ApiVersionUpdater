@@ -121,23 +121,16 @@ export default class StatusSummaryCard extends LightningElement {
         return classes;
     }
 
-    get findingsCardClass() {
-        let classes = 'status-card';
-        if (this.currentStep === 2) classes += ' card-active';
-        if (this.hasFindings && this.isScanComplete) classes += ' card-complete';
-        return classes;
-    }
-
     get planCardClass() {
         let classes = 'status-card';
-        if (this.currentStep === 3) classes += ' card-active';
+        if (this.currentStep === 2) classes += ' card-active';
         if (this.hasPlan) classes += ' card-complete';
         return classes;
     }
 
     get deploymentCardClass() {
         let classes = 'status-card';
-        if (this.currentStep === 4) classes += ' card-active';
+        if (this.currentStep === 3) classes += ' card-active';
         if (this.hasDeployment) {
             const status = this.displayDeploymentStatus;
             if (status === 'Completed' || status === 'Succeeded') {
@@ -155,23 +148,15 @@ export default class StatusSummaryCard extends LightningElement {
         return this.currentStep === 1;
     }
 
-    get isReviewSelected() {
+    get isPlanSelected() {
         return this.currentStep === 2;
     }
 
-    get isPlanSelected() {
+    get isDeploySelected() {
         return this.currentStep === 3;
     }
 
-    get isDeploySelected() {
-        return this.currentStep === 4;
-    }
-
     get isScanStepComplete() {
-        return this.isScanComplete;
-    }
-
-    get isReviewStepComplete() {
         return this.hasPlan;
     }
 
@@ -184,41 +169,15 @@ export default class StatusSummaryCard extends LightningElement {
         return status === 'Completed' || status === 'Succeeded';
     }
 
-    get scanStepBadgeClass() {
-        if (this.currentStep === 1) return 'step-badge step-badge-active';
-        return 'step-badge';
-    }
-
-    get findingsStepBadgeClass() {
-        if (this.currentStep === 2) return 'step-badge step-badge-active';
-        return 'step-badge';
-    }
-
-    get planStepBadgeClass() {
-        if (this.currentStep === 3) return 'step-badge step-badge-active';
-        return 'step-badge';
-    }
-
-    get deployStepBadgeClass() {
-        if (this.currentStep === 4) return 'step-badge step-badge-active';
-        return 'step-badge';
-    }
-
     get connector1Class() {
-        if (this.currentStep >= 2 || this.isScanComplete) return 'connector connector-complete';
-        if (this.currentStep === 1 && this.isScanRunning) return 'connector connector-active';
+        if (this.hasPlan) return 'connector connector-complete';
+        if (this.isScanComplete) return 'connector connector-active';
         return 'connector';
     }
 
     get connector2Class() {
-        if (this.currentStep >= 3) return 'connector connector-complete';
-        if (this.currentStep === 2) return 'connector connector-active';
-        return 'connector';
-    }
-
-    get connector3Class() {
-        if (this.currentStep >= 4) return 'connector connector-complete';
-        if (this.currentStep === 3) return 'connector connector-active';
+        if (this.isDeployStepComplete) return 'connector connector-complete';
+        if (this.hasDeployment) return 'connector connector-active';
         return 'connector';
     }
 
