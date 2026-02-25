@@ -42,7 +42,16 @@
                         </template>
                         
                         <div class="card-action card-action-centered">
-                            <template lwc:if={isScanRunning}>
+                            <template lwc:if={showStartScanButton}>
+                                <lightning-button 
+                                    variant="brand" 
+                                    label="Start Scan"
+                                    icon-name="utility:search"
+                                    onclick={handleStartScan}
+                                    class="action-button">
+                                </lightning-button>
+                            </template>
+                            <template lwc:elseif={isScanRunning}>
                                 <lightning-button 
                                     variant="destructive" 
                                     label="Cancel"
