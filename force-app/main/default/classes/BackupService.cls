@@ -85,20 +85,14 @@ public with sharing class BackupService {
     
     private static String createBackupForItems(String deploymentRunId, List<ChangeItem__c> changeItems) {
         List<BackupItem__c> backupItems = new List<BackupItem__c>();
-        Map<String, BackupItem__c> itemsByKey = new Map<String, BackupItem__c>();
         
         for (ChangeItem__c item : changeItems) {
             BackupItem__c backupItem = new BackupItem__c(
                 DeploymentRun__c = deploymentRunId,
-                ChangeItem__c = item.Id,
                 ArtifactType__c = item.ArtifactType__c,
-                FullName__c = item.FullName__c,
-                OriginalApiVersion__c = item.CurrentApiVersion__c,
-                RestoreStatus__c = 'NotRestored',
-                BackupCreatedAt__c = Datetime.now()
+                FullName__c = item.FullName__c
             );
             backupItems.add(backupItem);
-            itemsByKey.put(item.ArtifactType__c + ':' + item.FullName__c, backupItem);
         }
         
         insert backupItems;
@@ -122,58 +116,19 @@ public with sharing class BackupService {
     
     private static void createBackupFiles(List<BackupItem__c> backupItems) {
         List<ContentVersion> contentVersions = new List<ContentVersion>();
-        Map<String, BackupItem__c> cvToBackupItem = new Map<String, BackupItem__c>();
         
         for (BackupItem__c item : backupItems) {
             ContentResult result = fetchAndCreateContentVersion(item);
             if (result.contentVersion != null) {
                 contentVersions.add(result.contentVersion);
-                cvToBackupItem.put(item.FullName__c + '_body', item);
             }
             if (result.metadataVersion != null) {
                 contentVersions.add(result.metadataVersion);
-                cvToBackupItem.put(item.FullName__c + '_meta', item);
             }
-            item.ContentHash__c = result.contentHash;
-            item.RelatedTestClassesJson__c = result.relatedTestClassesJson;
         }
         
         if (!contentVersions.isEmpty()) {
             insert contentVersions;
-            
-            Set<Id> cvIds = new Set<Id>();
-            for (ContentVersion cv : contentVersions) {
-                cvIds.add(cv.Id);
-            }
-            
-            Map<Id, ContentVersion> insertedCVs = new Map<Id, ContentVersion>([
-                SELECT Id, ContentDocumentId, Title
-                FROM ContentVersion
-                WHERE Id IN :cvIds
-            ]);
-            
-            for (ContentVersion cv : insertedCVs.values()) {
-                String title = cv.Title;
-                if (title.endsWith('_body')) {
-                    String fullName = title.substringBefore('_body');
-                    for (BackupItem__c item : backupItems) {
-                        if (item.FullName__c == fullName) {
-                            item.ContentDocumentId__c = cv.ContentDocumentId;
-                            break;
-                        }
-                    }
-                } else if (title.endsWith('_meta')) {
-                    String fullName = title.substringBefore('_meta');
-                    for (BackupItem__c item : backupItems) {
-                        if (item.FullName__c == fullName) {
-                            item.MetadataDocumentId__c = cv.ContentDocumentId;
-                            break;
-                        }
-                    }
-                }
-            }
-            
-            update backupItems;
         }
     }
     
@@ -337,25 +292,10 @@ public with sharing class BackupService {
         summary.notificationSent = run.BackupNotificationSent__c;
         summary.totalItems = Integer.valueOf(run.BackupItemCount__c);
         
-        List<AggregateResult> statusCounts = [
-            SELECT RestoreStatus__c status, COUNT(Id) cnt
-            FROM BackupItem__c
-            WHERE DeploymentRun__c = :deploymentRunId
-            GROUP BY RestoreStatus__c
-        ];
+        Integer itemCount = [SELECT COUNT() FROM BackupItem__c WHERE DeploymentRun__c = :deploymentRunId];
         
         summary.restoredCount = 0;
-        summary.pendingCount = 0;
-        
-        for (AggregateResult ar : statusCounts) {
-            String status = (String) ar.get('status');
-            Integer count = (Integer) ar.get('cnt');
-            if (status == 'Restored') {
-                summary.restoredCount = count;
-            } else if (status == 'NotRestored') {
-                summary.pendingCount = count;
-            }
-        }
+        summary.pendingCount = itemCount;
         
         return summary;
     }
@@ -365,10 +305,7 @@ public with sharing class BackupService {
         List<BackupItemDto> items = new List<BackupItemDto>();
         
         for (BackupItem__c item : [
-            SELECT Id, DeploymentRun__c, ChangeItem__c, ArtifactType__c, FullName__c,
-                   OriginalApiVersion__c, ContentDocumentId__c, MetadataDocumentId__c,
-                   RestoreStatus__c, BackupCreatedAt__c, RestoredAt__c, ContentHash__c,
-                   RelatedTestClassesJson__c
+            SELECT Id, DeploymentRun__c, ArtifactType__c, FullName__c
             FROM BackupItem__c
             WHERE DeploymentRun__c = :deploymentRunId
             ORDER BY FullName__c
@@ -376,23 +313,9 @@ public with sharing class BackupService {
             BackupItemDto dto = new BackupItemDto();
             dto.id = item.Id;
             dto.deploymentRunId = item.DeploymentRun__c;
-            dto.changeItemId = item.ChangeItem__c;
             dto.artifactType = item.ArtifactType__c;
             dto.fullName = item.FullName__c;
-            dto.originalApiVersion = item.OriginalApiVersion__c;
-            dto.contentDocumentId = item.ContentDocumentId__c;
-            dto.metadataDocumentId = item.MetadataDocumentId__c;
-            dto.restoreStatus = item.RestoreStatus__c;
-            dto.backupCreatedAt = item.BackupCreatedAt__c;
-            dto.restoredAt = item.RestoredAt__c;
-            dto.contentHash = item.ContentHash__c;
-            
-            if (String.isNotBlank(item.RelatedTestClassesJson__c)) {
-                dto.relatedTestClasses = (List<String>) JSON.deserialize(
-                    item.RelatedTestClassesJson__c, 
-                    List<String>.class
-                );
-            }
+            dto.restoreStatus = 'NotRestored';
             
             items.add(dto);
         }
@@ -426,27 +349,11 @@ public with sharing class BackupService {
             runIds.add(run.Id);
         }
         
-        List<AggregateResult> statusCounts = [
-            SELECT RestoreStatus__c status, COUNT(Id) cnt
-            FROM BackupItem__c
-            WHERE DeploymentRun__c IN :runIds
-            GROUP BY RestoreStatus__c
-        ];
+        Integer totalCount = [SELECT COUNT() FROM BackupItem__c WHERE DeploymentRun__c IN :runIds];
         
-        summary.totalItems = 0;
+        summary.totalItems = totalCount;
         summary.restoredCount = 0;
-        summary.pendingCount = 0;
-        
-        for (AggregateResult ar : statusCounts) {
-            String status = (String) ar.get('status');
-            Integer count = (Integer) ar.get('cnt');
-            summary.totalItems += count;
-            if (status == 'Restored') {
-                summary.restoredCount = count;
-            } else if (status == 'NotRestored') {
-                summary.pendingCount = count;
-            }
-        }
+        summary.pendingCount = totalCount;
         
         return summary;
     }
@@ -469,10 +376,7 @@ public with sharing class BackupService {
         }
         
         for (BackupItem__c item : [
-            SELECT Id, DeploymentRun__c, ChangeItem__c, ArtifactType__c, FullName__c,
-                   OriginalApiVersion__c, ContentDocumentId__c, MetadataDocumentId__c,
-                   RestoreStatus__c, BackupCreatedAt__c, RestoredAt__c, ContentHash__c,
-                   RelatedTestClassesJson__c
+            SELECT Id, DeploymentRun__c, ArtifactType__c, FullName__c
             FROM BackupItem__c
             WHERE DeploymentRun__c IN :runIds
             ORDER BY FullName__c
@@ -480,23 +384,9 @@ public with sharing class BackupService {
             BackupItemDto dto = new BackupItemDto();
             dto.id = item.Id;
             dto.deploymentRunId = item.DeploymentRun__c;
-            dto.changeItemId = item.ChangeItem__c;
             dto.artifactType = item.ArtifactType__c;
             dto.fullName = item.FullName__c;
-            dto.originalApiVersion = item.OriginalApiVersion__c;
-            dto.contentDocumentId = item.ContentDocumentId__c;
-            dto.metadataDocumentId = item.MetadataDocumentId__c;
-            dto.restoreStatus = item.RestoreStatus__c;
-            dto.backupCreatedAt = item.BackupCreatedAt__c;
-            dto.restoredAt = item.RestoredAt__c;
-            dto.contentHash = item.ContentHash__c;
-            
-            if (String.isNotBlank(item.RelatedTestClassesJson__c)) {
-                dto.relatedTestClasses = (List<String>) JSON.deserialize(
-                    item.RelatedTestClassesJson__c, 
-                    List<String>.class
-                );
-            }
+            dto.restoreStatus = 'NotRestored';
             
             items.add(dto);
         }
@@ -507,72 +397,88 @@ public with sharing class BackupService {
     @AuraEnabled
     public static String getBackupContent(String backupItemId) {
         BackupItem__c item = [
-            SELECT ContentDocumentId__c
+            SELECT FullName__c
             FROM BackupItem__c
             WHERE Id = :backupItemId
         ];
         
-        if (String.isBlank(item.ContentDocumentId__c)) {
-            return '';
-        }
+        String titlePattern = item.FullName__c + '_body';
         
-        ContentVersion cv = [
+        List<ContentVersion> cvs = [
             SELECT VersionData
             FROM ContentVersion
-            WHERE ContentDocumentId = :item.ContentDocumentId__c
+            WHERE Title = :titlePattern
             AND IsLatest = true
+            ORDER BY CreatedDate DESC
             LIMIT 1
         ];
         
-        return cv.VersionData.toString();
+        if (cvs.isEmpty()) {
+            return '';
+        }
+        
+        return cvs[0].VersionData.toString();
     }
     
     @AuraEnabled
     public static String getBackupMetadata(String backupItemId) {
         BackupItem__c item = [
-            SELECT MetadataDocumentId__c
+            SELECT FullName__c
             FROM BackupItem__c
             WHERE Id = :backupItemId
         ];
         
-        if (String.isBlank(item.MetadataDocumentId__c)) {
-            return '';
-        }
+        String titlePattern = item.FullName__c + '_meta';
         
-        ContentVersion cv = [
+        List<ContentVersion> cvs = [
             SELECT VersionData
             FROM ContentVersion
-            WHERE ContentDocumentId = :item.MetadataDocumentId__c
+            WHERE Title = :titlePattern
             AND IsLatest = true
+            ORDER BY CreatedDate DESC
             LIMIT 1
         ];
         
-        return cv.VersionData.toString();
+        if (cvs.isEmpty()) {
+            return '';
+        }
+        
+        return cvs[0].VersionData.toString();
     }
     
     @AuraEnabled
     public static void cleanupBackup(String deploymentRunId) {
         List<BackupItem__c> items = [
-            SELECT Id, ContentDocumentId__c, MetadataDocumentId__c
+            SELECT Id, FullName__c
             FROM BackupItem__c
             WHERE DeploymentRun__c = :deploymentRunId
         ];
         
-        Set<Id> documentIds = new Set<Id>();
+        Set<String> titlePatterns = new Set<String>();
         for (BackupItem__c item : items) {
-            if (String.isNotBlank(item.ContentDocumentId__c)) {
-                documentIds.add(item.ContentDocumentId__c);
-            }
-            if (String.isNotBlank(item.MetadataDocumentId__c)) {
-                documentIds.add(item.MetadataDocumentId__c);
-            }
+            titlePatterns.add(item.FullName__c + '_body');
+            titlePatterns.add(item.FullName__c + '_meta');
         }
         
-        if (!documentIds.isEmpty()) {
-            List<ContentDocument> docs = [
-                SELECT Id FROM ContentDocument WHERE Id IN :documentIds
+        if (!titlePatterns.isEmpty()) {
+            List<ContentVersion> versions = [
+                SELECT ContentDocumentId 
+                FROM ContentVersion 
+                WHERE Title IN :titlePatterns
+                AND IsLatest = true
             ];
-            delete docs;
+            
+            Set<Id> documentIds = new Set<Id>();
+            for (ContentVersion cv : versions) {
+                documentIds.add(cv.ContentDocumentId);
+            }
+            
+            if (!documentIds.isEmpty()) {
+                List<ContentDocument> docs = [
+                    SELECT Id FROM ContentDocument WHERE Id IN :documentIds
+                ];
+                delete docs;
+            }
         }
         
         delete items;

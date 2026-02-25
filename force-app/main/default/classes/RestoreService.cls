@@ -25,8 +25,7 @@ public with sharing class RestoreService {
     @AuraEnabled
     public static List<RestoreResultDto> restoreAll(String deploymentRunId) {
         List<BackupItem__c> items = [
-            SELECT Id, ArtifactType__c, FullName__c, ContentDocumentId__c, 
-                   MetadataDocumentId__c, OriginalApiVersion__c
+            SELECT Id, ArtifactType__c, FullName__c
             FROM BackupItem__c
             WHERE DeploymentRun__c = :deploymentRunId
         ];
@@ -50,8 +49,7 @@ public with sharing class RestoreService {
     @AuraEnabled
     public static RestoreResultDto restoreItem(String backupItemId) {
         BackupItem__c item = [
-            SELECT Id, ArtifactType__c, FullName__c, ContentDocumentId__c, 
-                   MetadataDocumentId__c, OriginalApiVersion__c, DeploymentRun__c
+            SELECT Id, ArtifactType__c, FullName__c, DeploymentRun__c
             FROM BackupItem__c
             WHERE Id = :backupItemId
         ];
@@ -73,7 +71,7 @@ public with sharing class RestoreService {
         result.fullName = item.FullName__c;
         
         try {
-            String backupContent = getBackupContent(item.ContentDocumentId__c);
+            String backupContent = getBackupContentByTitle(item.FullName__c);
             
             if (String.isBlank(backupContent)) {
                 throw new AuraHandledException('No backup content found for ' + item.FullName__c);
@@ -99,16 +97,15 @@ public with sharing class RestoreService {
         return result;
     }
     
-    private static String getBackupContent(String contentDocumentId) {
-        if (String.isBlank(contentDocumentId)) {
-            return '';
-        }
+    private static String getBackupContentByTitle(String fullName) {
+        String titlePattern = fullName + '_body';
         
         List<ContentVersion> cvs = [
             SELECT VersionData
             FROM ContentVersion
-            WHERE ContentDocumentId = :contentDocumentId
+            WHERE Title = :titlePattern
             AND IsLatest = true
+            ORDER BY CreatedDate DESC
             LIMIT 1
         ];
         
@@ -394,18 +391,18 @@ public with sharing class RestoreService {
     @AuraEnabled
     public static String previewBackupContent(String backupItemId) {
         BackupItem__c item = [
-            SELECT ContentDocumentId__c
+            SELECT FullName__c
             FROM BackupItem__c
             WHERE Id = :backupItemId
         ];
         
-        return getBackupContent(item.ContentDocumentId__c);
+        return getBackupContentByTitle(item.FullName__c);
     }
     
     @AuraEnabled
     public static DiffResultDto getDiff(String backupItemId) {
         BackupItem__c item = [
-            SELECT Id, ArtifactType__c, FullName__c, ContentDocumentId__c, MetadataDocumentId__c
+            SELECT Id, ArtifactType__c, FullName__c
             FROM BackupItem__c
             WHERE Id = :backupItemId
         ];
@@ -414,8 +411,8 @@ public with sharing class RestoreService {
         diff.backupItemId = item.Id;
         diff.fullName = item.FullName__c;
         
-        diff.backupContent = getBackupContent(item.ContentDocumentId__c);
-        diff.backupMetadata = getBackupContent(item.MetadataDocumentId__c);
+        diff.backupContent = getBackupContentByTitle(item.FullName__c);
+        diff.backupMetadata = getBackupMetadataByTitle(item.FullName__c);
         
         Map<String, String> current = getCurrentContent(item.ArtifactType__c, item.FullName__c);
         diff.currentContent = current.get('content');
@@ -433,6 +430,25 @@ public with sharing class RestoreService {
         diff.hasMetadataChanges = diff.backupMetadata != diff.currentMetadata;
         
         return diff;
+    }
+    
+    private static String getBackupMetadataByTitle(String fullName) {
+        String titlePattern = fullName + '_meta';
+        
+        List<ContentVersion> cvs = [
+            SELECT VersionData
+            FROM ContentVersion
+            WHERE Title = :titlePattern
+            AND IsLatest = true
+            ORDER BY CreatedDate DESC
+            LIMIT 1
+        ];
+        
+        if (cvs.isEmpty()) {
+            return '';
+        }
+        
+        return cvs[0].VersionData.toString();
     }
     
     private static Map<String, String> getCurrentContent(String artifactType, String fullName) {
