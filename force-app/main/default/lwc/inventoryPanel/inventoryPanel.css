@@ -1,3 +1,29 @@
+/* API Retirement Info */
+.api-retirement-info {
+    display: flex;
+    align-items: center;
+    font-size: 0.75rem;
+    color: var(--slds-g-color-neutral-base-30, #444);
+    background: var(--slds-g-color-neutral-base-95, #f3f3f3);
+    padding: 0.375rem 0.75rem;
+    border-radius: 0.25rem;
+    border-left: 3px solid var(--slds-g-color-brand-base-50, #0176d3);
+}
+
+.retirement-text {
+    white-space: nowrap;
+}
+
+.retirement-link {
+    color: var(--slds-g-color-brand-base-50, #0176d3);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.retirement-link:hover {
+    text-decoration: underline;
+}
+
 /* Target Badge */
 .target-badge {
     background-color: #0176d3;

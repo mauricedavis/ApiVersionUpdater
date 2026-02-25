@@ -2,9 +2,24 @@
     <div class="slds-grid slds-gutters slds-wrap">
         
         <!-- Compliance Overview Section -->
-        <div class="slds-col slds-size_1-of-1 slds-m-bottom_medium">
+        <div class="slds-col slds-size_1-of-1 slds-m-bottom_small">
             <lightning-card title="Compliance Overview" icon-name="utility:target">
-                <div class="slds-p-around_medium">
+                <div slot="actions">
+                    <div class="api-retirement-info">
+                        <lightning-icon icon-name="utility:info" size="x-small" class="slds-m-right_xx-small"></lightning-icon>
+                        <span class="retirement-text">
+                            <strong>API Policy:</strong> 3-year minimum support &bull; 
+                            <strong>Supported:</strong> v31.0 - v63.0 &bull; 
+                            <strong>Retiring Summer '25:</strong> v21.0 - v30.0
+                        </span>
+                        <a href="https://developer.salesforce.com/blogs/2024/10/new-tools-to-help-prepare-for-api-version-retirement" 
+                           target="_blank" 
+                           class="slds-m-left_x-small retirement-link">
+                            Learn more
+                        </a>
+                    </div>
+                </div>
+                <div class="slds-p-horizontal_medium slds-p-bottom_medium">
                     <template lwc:if={hasComplianceData}>
                         <div class="slds-grid slds-gutters slds-wrap">
                             <!-- Compliance Ring -->
