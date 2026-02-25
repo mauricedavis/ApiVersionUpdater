@@ -28,6 +28,7 @@ import updateSessionPlan from '@salesforce/apex/ApiVersionUpdaterController.upda
 import viewSessionPlan from '@salesforce/apex/ApiVersionUpdaterController.viewSessionPlan';
 import updateSessionDeploymentRun from '@salesforce/apex/ApiVersionUpdaterController.updateSessionDeploymentRun';
 import clearSession from '@salesforce/apex/ApiVersionUpdaterController.clearSession';
+import getDeploymentRunDetails from '@salesforce/apex/ApiVersionUpdaterController.getDeploymentRunDetails';
 
 export default class ApiVersionUpdater extends LightningElement {
     @track orgContext = {};
@@ -50,7 +51,10 @@ export default class ApiVersionUpdater extends LightningElement {
     @track changePlan = null;
     @track changeItems = [];
     @track currentDeploymentRunId = null;
+    @track deploymentRunStatus = '';
     @track hasBackup = false;
+    
+    deploymentPollingInterval = null;
     
     @track session = null;
     @track workflowStep = 0;
@@ -291,7 +295,7 @@ export default class ApiVersionUpdater extends LightningElement {
     }
 
     get currentDeploymentStatus() {
-        return this.session?.currentDeploymentRunStatus || '';
+        return this.deploymentRunStatus || this.session?.currentDeploymentRunStatus || '';
     }
 
     get noChangePlan() {
@@ -319,6 +323,7 @@ export default class ApiVersionUpdater extends LightningElement {
 
     disconnectedCallback() {
         this.stopPolling();
+        this.stopDeploymentPolling();
     }
 
     async loadInitialData() {
@@ -745,48 +750,17 @@ export default class ApiVersionUpdater extends LightningElement {
             console.log('executePlanWithOptions returned runId:', runId);
             
             this.currentDeploymentRunId = runId;
+            this.deploymentRunStatus = 'Queued';
             this.hasBackup = createBackup;
             this.workflowStep = 4;
+            this.activeView = 'deploy';
             this.updateCompletedSteps();
             
             this.session = await updateSessionDeploymentRun({ deploymentRunId: runId });
             
             this.showToast('Deployment Started', 'Deployment has been queued', 'success');
-
-            const plan = await getChangePlan({ planId });
-            this.changePlan = plan;
-
-            const items = await getChangeItems({ planId });
-            this.changeItems = items;
-
-            const changePlanPanel = this.template.querySelector('c-change-plan-panel');
-            if (changePlanPanel) {
-                changePlanPanel.deploymentComplete();
-            }
-
-            const appliedCount = items.filter(i => i.applyStatus === 'Applied').length;
-            const failedCount = items.filter(i => i.applyStatus === 'Failed').length;
             
-            this.activeView = 'deploy';
-            this.workflowStep = 4;
-            this.updateCompletedSteps();
-            
-            setTimeout(() => {
-                const backupPanel = this.template.querySelector('c-backup-restore-panel');
-                if (backupPanel) {
-                    backupPanel.deploymentComplete(appliedCount, failedCount);
-                }
-            }, 500);
-            
-            if (failedCount === 0) {
-                this.showToast('Deployment Complete', 
-                    `Successfully updated ${appliedCount} component(s)`, 
-                    'success');
-            } else {
-                this.showToast('Deployment Complete with Issues', 
-                    `${appliedCount} succeeded, ${failedCount} failed. Check deployment history for details.`, 
-                    'warning');
-            }
+            this.startDeploymentPolling(runId, planId);
 
         } catch (err) {
             this.showToast('Error', this.extractErrorMessage(err), 'error');
@@ -797,6 +771,68 @@ export default class ApiVersionUpdater extends LightningElement {
             }
         } finally {
             this.isLoading = false;
+        }
+    }
+    
+    startDeploymentPolling(runId, planId) {
+        this.stopDeploymentPolling();
+        
+        this.deploymentPollingInterval = setInterval(async () => {
+            try {
+                const details = await getDeploymentRunDetails({ runId });
+                
+                if (details) {
+                    this.deploymentRunStatus = details.status;
+                    
+                    if (details.status === 'Completed' || details.status === 'Failed') {
+                        this.stopDeploymentPolling();
+                        
+                        const plan = await getChangePlan({ planId });
+                        this.changePlan = plan;
+                        
+                        const items = await getChangeItems({ planId });
+                        this.changeItems = items;
+                        
+                        const changePlanPanel = this.template.querySelector('c-change-plan-panel');
+                        if (changePlanPanel) {
+                            changePlanPanel.deploymentComplete();
+                        }
+                        
+                        const appliedCount = items.filter(i => i.applyStatus === 'Applied').length;
+                        const failedCount = items.filter(i => i.applyStatus === 'Failed').length;
+                        
+                        setTimeout(() => {
+                            const backupPanel = this.template.querySelector('c-backup-restore-panel');
+                            if (backupPanel) {
+                                backupPanel.deploymentComplete(appliedCount, failedCount);
+                            }
+                        }, 500);
+                        
+                        if (details.status === 'Completed' && failedCount === 0) {
+                            this.showToast('Deployment Complete', 
+                                `Successfully updated ${appliedCount} component(s)`, 
+                                'success');
+                        } else if (details.status === 'Completed') {
+                            this.showToast('Deployment Complete with Issues', 
+                                `${appliedCount} succeeded, ${failedCount} failed. Check deployment history for details.`, 
+                                'warning');
+                        } else {
+                            this.showToast('Deployment Failed', 
+                                'Deployment failed. Check details for more information.', 
+                                'error');
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error('Error polling deployment status:', err);
+            }
+        }, 2000);
+    }
+    
+    stopDeploymentPolling() {
+        if (this.deploymentPollingInterval) {
+            clearInterval(this.deploymentPollingInterval);
+            this.deploymentPollingInterval = null;
         }
     }
 
@@ -841,6 +877,7 @@ export default class ApiVersionUpdater extends LightningElement {
                 });
                 
                 this.currentDeploymentRunId = runId;
+                this.deploymentRunStatus = 'Queued';
                 this.hasBackup = true;
                 this.workflowStep = 4;
                 this.activeView = 'deploy';
@@ -850,12 +887,7 @@ export default class ApiVersionUpdater extends LightningElement {
                 
                 this.showToast('Deployment Started', `Deploying ${itemsToDeployIds.length} item(s) without tests. A backup was created.`, 'success');
                 
-                // Refresh plan and items to show updated status
-                const plan = await getChangePlan({ planId });
-                this.changePlan = plan;
-                
-                const updatedItems = await getChangeItems({ planId });
-                this.changeItems = updatedItems;
+                this.startDeploymentPolling(runId, planId);
                 
             } catch (err) {
                 this.showToast('Error', this.extractErrorMessage(err), 'error');
