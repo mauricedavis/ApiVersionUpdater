@@ -37,7 +37,7 @@ public with sharing class RestoreService {
             results.add(result);
         }
         
-        logAuditEvent('RestoreAllCompleted', new Map<String, Object>{
+        logAuditEvent('RestoreCompleted', new Map<String, Object>{
             'deploymentRunId' => deploymentRunId,
             'itemCount' => items.size(),
             'successCount' => countSuccesses(results)
@@ -56,7 +56,7 @@ public with sharing class RestoreService {
         
         RestoreResultDto result = restoreItemInternal(item);
         
-        logAuditEvent('RestoreItemCompleted', new Map<String, Object>{
+        logAuditEvent('RestoreCompleted', new Map<String, Object>{
             'backupItemId' => backupItemId,
             'fullName' => item.FullName__c,
             'success' => result.success
