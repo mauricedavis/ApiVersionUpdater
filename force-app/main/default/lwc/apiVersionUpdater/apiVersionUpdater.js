@@ -638,7 +638,11 @@ export default class ApiVersionUpdater extends LightningElement {
     }
 
     async handleCancelScan(event) {
-        const scanId = event.detail.scanId;
+        const scanId = event.detail?.scanId || this.session?.currentScanId || this.selectedScanId;
+        if (!scanId) {
+            this.showToast('Error', 'No scan to cancel', 'warning');
+            return;
+        }
         try {
             await cancelScan({ scanId });
             this.stopPolling();
@@ -646,6 +650,13 @@ export default class ApiVersionUpdater extends LightningElement {
             
             const scans = await getRecentScans({ limitCount: 10, cacheBuster: Date.now() });
             this.recentScans = scans;
+            
+            if (this.session) {
+                this.session = { ...this.session, currentScanStatus: 'Cancelled' };
+            }
+            if (this.currentScan) {
+                this.currentScan = { ...this.currentScan, status: 'Cancelled' };
+            }
         } catch (err) {
             this.showToast('Error', this.extractErrorMessage(err), 'error');
         }

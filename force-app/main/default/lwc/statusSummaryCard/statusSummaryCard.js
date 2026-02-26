@@ -237,7 +237,9 @@ export default class StatusSummaryCard extends LightningElement {
 
     handleCancelScan(event) {
         event.stopPropagation();
-        this.dispatchEvent(new CustomEvent('cancelscan'));
+        this.dispatchEvent(new CustomEvent('cancelscan', {
+            detail: { scanId: this.session?.currentScanId }
+        }));
     }
 
     handleScanClick() {
