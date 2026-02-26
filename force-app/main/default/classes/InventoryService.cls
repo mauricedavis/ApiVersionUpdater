@@ -39,8 +39,8 @@ public with sharing class InventoryService {
         if (filter.pageSize == null || filter.pageSize <= 0) {
             filter.pageSize = 50;
         }
-        if (filter.pageSize > 200) {
-            filter.pageSize = 200;
+        if (filter.pageSize > 2000) {
+            filter.pageSize = 2000;
         }
         if (filter.offset == null) {
             filter.offset = 0;

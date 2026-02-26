@@ -318,38 +318,31 @@ public with sharing class ScanService {
             Scan__c scan = new Scan__c(Id = scanId, Status__c = 'Running');
             update scan;
             
-            String filterJson = JSON.serialize(new Map<String, Object>{
-                'types' => request.types,
-                'namespacePolicy' => request.namespacePolicy,
-                'minApiVersion' => request.minApiVersion,
-                'maxApiVersion' => request.maxApiVersion,
-                'pageSize' => 200
-            });
-            
-            InventoryService.InventoryResultDto inventory = 
-                InventoryService.queryArtifacts(filterJson);
-            
             List<ArtifactSnapshot__c> snapshots = new List<ArtifactSnapshot__c>();
             
-            for (InventoryService.ArtifactDto artifact : inventory.artifacts) {
-                ArtifactSnapshot__c snapshot = new ArtifactSnapshot__c(
-                    Scan__c = scanId,
-                    ArtifactType__c = artifact.artifactType,
-                    FullName__c = artifact.fullName,
-                    DeveloperName__c = artifact.developerName,
-                    NamespacePrefix__c = artifact.namespacePrefix,
-                    ApiVersion__c = artifact.apiVersion,
-                    Status__c = artifact.status,
-                    LastModifiedDate__c = artifact.lastModifiedDate
-                );
-                snapshots.add(snapshot);
+            for (String artifactType : request.types) {
+                List<InventoryService.ArtifactDto> typeArtifacts = queryAllArtifactsOfType(artifactType);
+                
+                for (InventoryService.ArtifactDto artifact : typeArtifacts) {
+                    ArtifactSnapshot__c snapshot = new ArtifactSnapshot__c(
+                        Scan__c = scanId,
+                        ArtifactType__c = artifact.artifactType,
+                        FullName__c = artifact.fullName,
+                        DeveloperName__c = artifact.developerName,
+                        NamespacePrefix__c = artifact.namespacePrefix,
+                        ApiVersion__c = artifact.apiVersion,
+                        Status__c = artifact.status,
+                        LastModifiedDate__c = artifact.lastModifiedDate
+                    );
+                    snapshots.add(snapshot);
+                }
             }
             
             if (!snapshots.isEmpty()) {
                 insert snapshots;
             }
             
-            if (request.includeContent == true) {
+            if (request.includeContent == true && snapshots.size() <= 500) {
                 processContentHashes(snapshots);
             }
             
@@ -372,32 +365,73 @@ public with sharing class ScanService {
             AnalysisService.analyzeSnapshots(analysisRequest);
         }
         
-        private void processContentHashes(List<ArtifactSnapshot__c> snapshots) {
-            Map<String, List<String>> idsByType = new Map<String, List<String>>();
-            Map<String, ArtifactSnapshot__c> snapshotMap = new Map<String, ArtifactSnapshot__c>();
+        private List<InventoryService.ArtifactDto> queryAllArtifactsOfType(String artifactType) {
+            List<InventoryService.ArtifactDto> allArtifacts = new List<InventoryService.ArtifactDto>();
+            Integer offset = 0;
+            Integer pageSize = 2000;
+            Boolean hasMore = true;
             
-            for (ArtifactSnapshot__c snap : snapshots) {
-                if (!idsByType.containsKey(snap.ArtifactType__c)) {
-                    idsByType.put(snap.ArtifactType__c, new List<String>());
-                }
+            while (hasMore && offset < 10000) {
+                String filterJson = JSON.serialize(new Map<String, Object>{
+                    'types' => new List<String>{ artifactType },
+                    'namespacePolicy' => request.namespacePolicy,
+                    'minApiVersion' => request.minApiVersion,
+                    'maxApiVersion' => request.maxApiVersion,
+                    'pageSize' => pageSize,
+                    'offset' => offset
+                });
                 
-                String artifactId = getArtifactIdFromSnapshot(snap);
-                if (artifactId != null) {
-                    idsByType.get(snap.ArtifactType__c).add(artifactId);
-                    snapshotMap.put(artifactId, snap);
+                InventoryService.InventoryResultDto result = InventoryService.queryArtifacts(filterJson);
+                
+                if (result.artifacts != null && !result.artifacts.isEmpty()) {
+                    allArtifacts.addAll(result.artifacts);
+                    offset += result.artifacts.size();
+                    hasMore = result.artifacts.size() == pageSize;
+                } else {
+                    hasMore = false;
                 }
             }
             
-            for (String artifactType : idsByType.keySet()) {
-                Map<String, String> hashes = ContentService.fetchContentBatch(
-                    idsByType.get(artifactType), 
-                    artifactType
-                );
+            return allArtifacts;
+        }
+        
+        private void processContentHashes(List<ArtifactSnapshot__c> snapshots) {
+            Map<String, List<ArtifactSnapshot__c>> snapshotsByType = new Map<String, List<ArtifactSnapshot__c>>();
+            
+            for (ArtifactSnapshot__c snap : snapshots) {
+                if (!snapshotsByType.containsKey(snap.ArtifactType__c)) {
+                    snapshotsByType.put(snap.ArtifactType__c, new List<ArtifactSnapshot__c>());
+                }
+                snapshotsByType.get(snap.ArtifactType__c).add(snap);
+            }
+            
+            Map<String, ArtifactSnapshot__c> snapshotByArtifactId = new Map<String, ArtifactSnapshot__c>();
+            List<String> allArtifactIds = new List<String>();
+            
+            for (String artifactType : snapshotsByType.keySet()) {
+                List<ArtifactSnapshot__c> typeSnapshots = snapshotsByType.get(artifactType);
+                Map<String, ArtifactSnapshot__c> artifactIdMap = bulkGetArtifactIds(typeSnapshots, artifactType);
+                snapshotByArtifactId.putAll(artifactIdMap);
+                allArtifactIds.addAll(artifactIdMap.keySet());
+            }
+            
+            for (String artifactType : snapshotsByType.keySet()) {
+                List<String> typeIds = new List<String>();
+                for (String artId : snapshotByArtifactId.keySet()) {
+                    ArtifactSnapshot__c snap = snapshotByArtifactId.get(artId);
+                    if (snap.ArtifactType__c == artifactType) {
+                        typeIds.add(artId);
+                    }
+                }
                 
-                for (String artifactId : hashes.keySet()) {
-                    ArtifactSnapshot__c snap = snapshotMap.get(artifactId);
-                    if (snap != null) {
-                        snap.ContentHash__c = hashes.get(artifactId);
+                if (!typeIds.isEmpty()) {
+                    Map<String, String> hashes = ContentService.fetchContentBatch(typeIds, artifactType);
+                    
+                    for (String artifactId : hashes.keySet()) {
+                        ArtifactSnapshot__c snap = snapshotByArtifactId.get(artifactId);
+                        if (snap != null) {
+                            snap.ContentHash__c = hashes.get(artifactId);
+                        }
                     }
                 }
             }
@@ -405,42 +439,53 @@ public with sharing class ScanService {
             update snapshots;
         }
         
-        private String getArtifactIdFromSnapshot(ArtifactSnapshot__c snap) {
-            String ns = snap.NamespacePrefix__c;
-            String devName = snap.DeveloperName__c;
+        private Map<String, ArtifactSnapshot__c> bulkGetArtifactIds(List<ArtifactSnapshot__c> snapshots, String artifactType) {
+            Map<String, ArtifactSnapshot__c> result = new Map<String, ArtifactSnapshot__c>();
+            Set<String> names = new Set<String>();
+            Map<String, ArtifactSnapshot__c> snapshotsByName = new Map<String, ArtifactSnapshot__c>();
             
-            switch on snap.ArtifactType__c {
+            for (ArtifactSnapshot__c snap : snapshots) {
+                String key = (String.isBlank(snap.NamespacePrefix__c) ? '' : snap.NamespacePrefix__c + '.') + snap.DeveloperName__c;
+                names.add(snap.DeveloperName__c);
+                snapshotsByName.put(key, snap);
+            }
+            
+            switch on artifactType {
                 when 'ApexClass' {
-                    List<ApexClass> classes;
-                    if (String.isBlank(ns)) {
-                        classes = [
-                            SELECT Id FROM ApexClass 
-                            WHERE Name = :devName 
-                            AND NamespacePrefix = null
-                            LIMIT 1
-                        ];
-                    } else {
-                        classes = [
-                            SELECT Id FROM ApexClass 
-                            WHERE Name = :devName 
-                            AND NamespacePrefix = :ns
-                            LIMIT 1
-                        ];
+                    for (ApexClass cls : [SELECT Id, Name, NamespacePrefix FROM ApexClass WHERE Name IN :names AND NamespacePrefix = null LIMIT 10000]) {
+                        String key = cls.Name;
+                        if (snapshotsByName.containsKey(key)) {
+                            result.put(cls.Id, snapshotsByName.get(key));
+                        }
                     }
-                    return classes.isEmpty() ? null : classes[0].Id;
                 }
                 when 'ApexTrigger' {
-                    List<ApexTrigger> triggers = [
-                        SELECT Id FROM ApexTrigger 
-                        WHERE Name = :devName 
-                        LIMIT 1
-                    ];
-                    return triggers.isEmpty() ? null : triggers[0].Id;
+                    for (ApexTrigger trg : [SELECT Id, Name, NamespacePrefix FROM ApexTrigger WHERE Name IN :names AND NamespacePrefix = null LIMIT 10000]) {
+                        String key = trg.Name;
+                        if (snapshotsByName.containsKey(key)) {
+                            result.put(trg.Id, snapshotsByName.get(key));
+                        }
+                    }
                 }
-                when else {
-                    return null;
+                when 'ApexPage' {
+                    for (ApexPage pg : [SELECT Id, Name, NamespacePrefix FROM ApexPage WHERE Name IN :names AND NamespacePrefix = null LIMIT 10000]) {
+                        String key = pg.Name;
+                        if (snapshotsByName.containsKey(key)) {
+                            result.put(pg.Id, snapshotsByName.get(key));
+                        }
+                    }
+                }
+                when 'ApexComponent' {
+                    for (ApexComponent cmp : [SELECT Id, Name, NamespacePrefix FROM ApexComponent WHERE Name IN :names AND NamespacePrefix = null LIMIT 10000]) {
+                        String key = cmp.Name;
+                        if (snapshotsByName.containsKey(key)) {
+                            result.put(cmp.Id, snapshotsByName.get(key));
+                        }
+                    }
                 }
             }
+            
+            return result;
         }
     }
 }
