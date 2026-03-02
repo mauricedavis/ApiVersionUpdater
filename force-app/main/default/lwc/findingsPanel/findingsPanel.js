@@ -7,6 +7,7 @@ export default class FindingsPanel extends LightningElement {
     @api findingsSummary = {};
     @api targetVersion;
     @api scopePolicy;
+    @api scanAlertsCount = 0;
 
     @track nonCompliantData = null;
     @track isLoading = false;
@@ -218,6 +219,9 @@ export default class FindingsPanel extends LightningElement {
     }
 
     get alertCount() {
+        if (this.scanAlertsCount > 0) {
+            return this.scanAlertsCount;
+        }
         if (!this.nonCompliantData) return 0;
         let count = 0;
         for (const artifacts of Object.values(this.nonCompliantData.byType)) {
