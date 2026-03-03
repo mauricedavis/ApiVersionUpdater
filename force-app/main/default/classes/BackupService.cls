@@ -147,45 +147,57 @@ public with sharing class BackupService {
         
         switch on item.ArtifactType__c {
             when 'ApexClass' {
-                ApexClass cls = [
+                List<ApexClass> classes = [
                     SELECT Id, Name, Body, ApiVersion, Status
                     FROM ApexClass 
                     WHERE Name = :item.FullName__c
                     LIMIT 1
                 ];
-                content = cls.Body;
-                metadataXml = generateApexClassMetadata(cls);
-                relatedTestClasses = findRelatedTestClasses(cls.Name);
+                if (!classes.isEmpty()) {
+                    ApexClass cls = classes[0];
+                    content = cls.Body;
+                    metadataXml = generateApexClassMetadata(cls);
+                    relatedTestClasses = findRelatedTestClasses(cls.Name);
+                }
             }
             when 'ApexTrigger' {
-                ApexTrigger trg = [
+                List<ApexTrigger> triggers = [
                     SELECT Id, Name, Body, ApiVersion, Status
                     FROM ApexTrigger 
                     WHERE Name = :item.FullName__c
                     LIMIT 1
                 ];
-                content = trg.Body;
-                metadataXml = generateApexTriggerMetadata(trg);
+                if (!triggers.isEmpty()) {
+                    ApexTrigger trg = triggers[0];
+                    content = trg.Body;
+                    metadataXml = generateApexTriggerMetadata(trg);
+                }
             }
             when 'ApexPage' {
-                ApexPage pg = [
+                List<ApexPage> pages = [
                     SELECT Id, Name, Markup, ApiVersion
                     FROM ApexPage 
                     WHERE Name = :item.FullName__c
                     LIMIT 1
                 ];
-                content = pg.Markup;
-                metadataXml = generateApexPageMetadata(pg);
+                if (!pages.isEmpty()) {
+                    ApexPage pg = pages[0];
+                    content = pg.Markup;
+                    metadataXml = generateApexPageMetadata(pg);
+                }
             }
             when 'ApexComponent' {
-                ApexComponent cmp = [
+                List<ApexComponent> components = [
                     SELECT Id, Name, Markup, ApiVersion
                     FROM ApexComponent 
                     WHERE Name = :item.FullName__c
                     LIMIT 1
                 ];
-                content = cmp.Markup;
-                metadataXml = generateApexComponentMetadata(cmp);
+                if (!components.isEmpty()) {
+                    ApexComponent cmp = components[0];
+                    content = cmp.Markup;
+                    metadataXml = generateApexComponentMetadata(cmp);
+                }
             }
         }
         
