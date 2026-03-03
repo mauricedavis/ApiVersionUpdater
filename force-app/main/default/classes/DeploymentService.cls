@@ -288,6 +288,441 @@ public with sharing class DeploymentService {
         }
     }
     
+    @AuraEnabled
+    public static Map<String, Object> validateSelectedItems(String planId, List<String> selectedItemIds) {
+        Map<String, Object> result = new Map<String, Object>{
+            'success' => false,
+            'validatedIds' => new List<String>(),
+            'errors' => new Map<String, String>(),
+            'message' => ''
+        };
+        
+        if (selectedItemIds == null || selectedItemIds.isEmpty()) {
+            result.put('message', 'No items selected for validation');
+            return result;
+        }
+        
+        ChangePlan__c plan = [
+            SELECT Id, TargetApiVersion__c
+            FROM ChangePlan__c
+            WHERE Id = :planId
+        ];
+        
+        Decimal targetVersion = Decimal.valueOf(plan.TargetApiVersion__c);
+        
+        List<ChangeItem__c> itemsToValidate = [
+            SELECT Id, ArtifactType__c, FullName__c, CurrentApiVersion__c, TargetApiVersion__c
+            FROM ChangeItem__c
+            WHERE Id IN :selectedItemIds
+            AND Eligibility__c = 'Eligible'
+            ORDER BY UnitNumber__c
+        ];
+        
+        if (itemsToValidate.isEmpty()) {
+            result.put('message', 'No eligible items found for validation');
+            return result;
+        }
+        
+        Map<String, List<ChangeItem__c>> itemsByType = new Map<String, List<ChangeItem__c>>();
+        for (ChangeItem__c item : itemsToValidate) {
+            if (!itemsByType.containsKey(item.ArtifactType__c)) {
+                itemsByType.put(item.ArtifactType__c, new List<ChangeItem__c>());
+            }
+            itemsByType.get(item.ArtifactType__c).add(item);
+        }
+        
+        List<String> validatedIds = new List<String>();
+        Map<String, String> errorMap = new Map<String, String>();
+        
+        ValidationHelper helper = new ValidationHelper();
+        
+        for (String artifactType : itemsByType.keySet()) {
+            List<ChangeItem__c> typeItems = itemsByType.get(artifactType);
+            
+            if (!helper.isSupportedType(artifactType)) {
+                for (ChangeItem__c item : typeItems) {
+                    errorMap.put(item.Id, 'Unsupported artifact type: ' + artifactType);
+                }
+                continue;
+            }
+            
+            try {
+                String containerId = helper.createContainer();
+                Map<String, String> addErrors = new Map<String, String>();
+                
+                for (ChangeItem__c item : typeItems) {
+                    try {
+                        helper.addMember(containerId, artifactType, item.FullName__c, targetVersion);
+                    } catch (Exception e) {
+                        addErrors.put(item.Id, e.getMessage());
+                    }
+                }
+                
+                errorMap.putAll(addErrors);
+                
+                List<ChangeItem__c> pendingItems = new List<ChangeItem__c>();
+                for (ChangeItem__c item : typeItems) {
+                    if (!addErrors.containsKey(item.Id)) {
+                        pendingItems.add(item);
+                    }
+                }
+                
+                if (!pendingItems.isEmpty()) {
+                    String asyncRequestId = helper.deployForValidation(containerId);
+                    Map<String, Object> deployResult = helper.pollAndGetResults(asyncRequestId);
+                    
+                    String status = (String) deployResult.get('status');
+                    
+                    if (status == 'Completed') {
+                        for (ChangeItem__c item : pendingItems) {
+                            validatedIds.add(item.Id);
+                        }
+                    } else if (status == 'Failed' || status == 'Error') {
+                        String errorDetail = (String) deployResult.get('errorDetail');
+                        Map<String, String> componentErrors = helper.parseComponentErrors(asyncRequestId);
+                        
+                        for (ChangeItem__c item : pendingItems) {
+                            String componentError = componentErrors.get(item.FullName__c);
+                            if (String.isNotBlank(componentError)) {
+                                errorMap.put(item.Id, componentError);
+                            } else if (String.isNotBlank(errorDetail)) {
+                                errorMap.put(item.Id, errorDetail);
+                            } else {
+                                errorMap.put(item.Id, 'Validation failed');
+                            }
+                        }
+                    } else {
+                        for (ChangeItem__c item : pendingItems) {
+                            errorMap.put(item.Id, 'Validation timed out. Status: ' + status);
+                        }
+                    }
+                }
+                
+            } catch (Exception e) {
+                for (ChangeItem__c item : typeItems) {
+                    if (!errorMap.containsKey(item.Id)) {
+                        errorMap.put(item.Id, e.getMessage());
+                    }
+                }
+            }
+        }
+        
+        result.put('success', errorMap.isEmpty());
+        result.put('validatedIds', validatedIds);
+        result.put('errors', errorMap);
+        result.put('message', errorMap.isEmpty() 
+            ? 'All ' + validatedIds.size() + ' items validated successfully' 
+            : validatedIds.size() + ' validated, ' + errorMap.size() + ' with errors');
+        
+        return result;
+    }
+    
+    public class ValidationHelper {
+        
+        public Boolean isSupportedType(String artifactType) {
+            return artifactType == 'ApexClass' || 
+                   artifactType == 'ApexTrigger' || 
+                   artifactType == 'ApexPage' || 
+                   artifactType == 'ApexComponent';
+        }
+        
+        public String createContainer() {
+            String endpoint = URL.getOrgDomainUrl().toExternalForm() + 
+                '/services/data/v65.0/tooling/sobjects/MetadataContainer';
+            
+            Map<String, Object> container = new Map<String, Object>{
+                'Name' => 'Validate_' + System.currentTimeMillis()
+            };
+            
+            HttpRequest req = new HttpRequest();
+            req.setEndpoint(endpoint);
+            req.setMethod('POST');
+            req.setHeader('Authorization', 'Bearer ' + UserInfo.getSessionId());
+            req.setHeader('Content-Type', 'application/json');
+            req.setBody(JSON.serialize(container));
+            
+            Http http = new Http();
+            HttpResponse res = http.send(req);
+            
+            if (res.getStatusCode() == 201) {
+                Map<String, Object> result = (Map<String, Object>) JSON.deserializeUntyped(res.getBody());
+                return (String) result.get('id');
+            }
+            
+            throw new DeploymentException('Failed to create validation container: ' + res.getBody());
+        }
+        
+        public void addMember(String containerId, String artifactType, String fullName, Decimal targetVersion) {
+            String memberType = getMemberType(artifactType);
+            String contentEntityId = getContentEntityId(artifactType, fullName);
+            
+            if (String.isBlank(contentEntityId)) {
+                throw new DeploymentException('Component not found: ' + fullName);
+            }
+            
+            String currentBody = getComponentBody(artifactType, fullName);
+            
+            if (String.isBlank(currentBody)) {
+                throw new DeploymentException('Could not retrieve body for: ' + fullName);
+            }
+            
+            String endpoint = URL.getOrgDomainUrl().toExternalForm() + 
+                '/services/data/v65.0/tooling/sobjects/' + memberType;
+            
+            Map<String, Object> metadata = buildMetadataForType(artifactType, targetVersion, fullName);
+            
+            Map<String, Object> member = new Map<String, Object>{
+                'MetadataContainerId' => containerId,
+                'ContentEntityId' => contentEntityId,
+                'Body' => currentBody,
+                'Metadata' => metadata
+            };
+            
+            HttpRequest req = new HttpRequest();
+            req.setEndpoint(endpoint);
+            req.setMethod('POST');
+            req.setHeader('Authorization', 'Bearer ' + UserInfo.getSessionId());
+            req.setHeader('Content-Type', 'application/json');
+            req.setBody(JSON.serialize(member));
+            
+            Http http = new Http();
+            HttpResponse res = http.send(req);
+            
+            if (res.getStatusCode() != 201) {
+                String errorMsg = parseErrorMessage(res.getBody());
+                throw new DeploymentException('Add member failed: ' + errorMsg);
+            }
+        }
+        
+        private String getMemberType(String artifactType) {
+            if (artifactType == 'ApexClass') return 'ApexClassMember';
+            if (artifactType == 'ApexTrigger') return 'ApexTriggerMember';
+            if (artifactType == 'ApexPage') return 'ApexPageMember';
+            if (artifactType == 'ApexComponent') return 'ApexComponentMember';
+            throw new DeploymentException('Unsupported artifact type: ' + artifactType);
+        }
+        
+        private String getContentEntityId(String artifactType, String fullName) {
+            if (artifactType == 'ApexClass') {
+                List<ApexClass> classes = [SELECT Id FROM ApexClass WHERE Name = :fullName LIMIT 1];
+                return classes.isEmpty() ? null : classes[0].Id;
+            } else if (artifactType == 'ApexTrigger') {
+                List<ApexTrigger> triggers = [SELECT Id FROM ApexTrigger WHERE Name = :fullName LIMIT 1];
+                return triggers.isEmpty() ? null : triggers[0].Id;
+            } else if (artifactType == 'ApexPage') {
+                List<ApexPage> pages = [SELECT Id FROM ApexPage WHERE Name = :fullName LIMIT 1];
+                return pages.isEmpty() ? null : pages[0].Id;
+            } else if (artifactType == 'ApexComponent') {
+                List<ApexComponent> components = [SELECT Id FROM ApexComponent WHERE Name = :fullName LIMIT 1];
+                return components.isEmpty() ? null : components[0].Id;
+            }
+            return null;
+        }
+        
+        private String getComponentBody(String artifactType, String fullName) {
+            if (artifactType == 'ApexClass') {
+                List<ApexClass> classes = [SELECT Body FROM ApexClass WHERE Name = :fullName LIMIT 1];
+                return classes.isEmpty() ? null : classes[0].Body;
+            } else if (artifactType == 'ApexTrigger') {
+                List<ApexTrigger> triggers = [SELECT Body FROM ApexTrigger WHERE Name = :fullName LIMIT 1];
+                return triggers.isEmpty() ? null : triggers[0].Body;
+            } else if (artifactType == 'ApexPage') {
+                List<ApexPage> pages = [SELECT Markup FROM ApexPage WHERE Name = :fullName LIMIT 1];
+                return pages.isEmpty() ? null : pages[0].Markup;
+            } else if (artifactType == 'ApexComponent') {
+                List<ApexComponent> comps = [SELECT Markup FROM ApexComponent WHERE Name = :fullName LIMIT 1];
+                return comps.isEmpty() ? null : comps[0].Markup;
+            }
+            return null;
+        }
+        
+        private Map<String, Object> buildMetadataForType(String artifactType, Decimal targetVersion, String fullName) {
+            Map<String, Object> metadata = new Map<String, Object>{
+                'apiVersion' => targetVersion
+            };
+            
+            if (artifactType == 'ApexClass') {
+                List<ApexClass> classes = [SELECT Status FROM ApexClass WHERE Name = :fullName LIMIT 1];
+                metadata.put('status', classes.isEmpty() ? 'Active' : classes[0].Status);
+            } else if (artifactType == 'ApexTrigger') {
+                List<ApexTrigger> triggers = [SELECT Status FROM ApexTrigger WHERE Name = :fullName LIMIT 1];
+                metadata.put('status', triggers.isEmpty() ? 'Active' : triggers[0].Status);
+            } else if (artifactType == 'ApexPage') {
+                metadata.put('label', fullName);
+            } else if (artifactType == 'ApexComponent') {
+                metadata.put('label', fullName);
+            }
+            
+            return metadata;
+        }
+        
+        private String parseErrorMessage(String responseBody) {
+            try {
+                Object parsed = JSON.deserializeUntyped(responseBody);
+                if (parsed instanceof List<Object>) {
+                    List<Object> errors = (List<Object>) parsed;
+                    if (!errors.isEmpty()) {
+                        Map<String, Object> firstError = (Map<String, Object>) errors[0];
+                        if (firstError.containsKey('message')) {
+                            return (String) firstError.get('message');
+                        }
+                    }
+                } else if (parsed instanceof Map<String, Object>) {
+                    Map<String, Object> errorMap = (Map<String, Object>) parsed;
+                    if (errorMap.containsKey('message')) {
+                        return (String) errorMap.get('message');
+                    }
+                }
+            } catch (Exception e) {
+                // Fall through
+            }
+            return responseBody;
+        }
+        
+        public String deployForValidation(String containerId) {
+            String endpoint = URL.getOrgDomainUrl().toExternalForm() + 
+                '/services/data/v65.0/tooling/sobjects/ContainerAsyncRequest';
+            
+            Map<String, Object> asyncRequest = new Map<String, Object>{
+                'MetadataContainerId' => containerId,
+                'IsCheckOnly' => true,
+                'IsRunTests' => false
+            };
+            
+            HttpRequest req = new HttpRequest();
+            req.setEndpoint(endpoint);
+            req.setMethod('POST');
+            req.setHeader('Authorization', 'Bearer ' + UserInfo.getSessionId());
+            req.setHeader('Content-Type', 'application/json');
+            req.setBody(JSON.serialize(asyncRequest));
+            
+            Http http = new Http();
+            HttpResponse res = http.send(req);
+            
+            if (res.getStatusCode() == 201) {
+                Map<String, Object> result = (Map<String, Object>) JSON.deserializeUntyped(res.getBody());
+                return (String) result.get('id');
+            }
+            
+            throw new DeploymentException('Failed to start validation: ' + res.getBody());
+        }
+        
+        public Map<String, Object> pollAndGetResults(String asyncRequestId) {
+            String endpoint = URL.getOrgDomainUrl().toExternalForm() + 
+                '/services/data/v65.0/tooling/sobjects/ContainerAsyncRequest/' + asyncRequestId;
+            
+            Integer maxAttempts = 30;
+            Integer attempt = 0;
+            String status = 'Queued';
+            String errorDetail = '';
+            
+            while (attempt < maxAttempts && (status == 'Queued' || status == 'Pending')) {
+                HttpRequest req = new HttpRequest();
+                req.setEndpoint(endpoint);
+                req.setMethod('GET');
+                req.setHeader('Authorization', 'Bearer ' + UserInfo.getSessionId());
+                req.setHeader('Content-Type', 'application/json');
+                
+                Http http = new Http();
+                HttpResponse res = http.send(req);
+                
+                if (res.getStatusCode() == 200) {
+                    Map<String, Object> result = (Map<String, Object>) JSON.deserializeUntyped(res.getBody());
+                    status = (String) result.get('State');
+                    
+                    if (status == 'Failed' || status == 'Error') {
+                        errorDetail = (String) result.get('ErrorMsg');
+                        break;
+                    }
+                    
+                    if (status == 'Completed') {
+                        break;
+                    }
+                }
+                
+                attempt++;
+            }
+            
+            return new Map<String, Object>{
+                'status' => status,
+                'errorDetail' => errorDetail
+            };
+        }
+        
+        public Map<String, String> parseComponentErrors(String asyncRequestId) {
+            Map<String, String> componentErrors = new Map<String, String>();
+            
+            try {
+                String endpoint = URL.getOrgDomainUrl().toExternalForm() + 
+                    '/services/data/v65.0/tooling/query/?q=' +
+                    EncodingUtil.urlEncode(
+                        'SELECT ContentEntity.Name, CompilerErrors FROM ApexClassMember ' +
+                        'WHERE MetadataContainerId IN (SELECT MetadataContainerId FROM ContainerAsyncRequest WHERE Id = \'' + asyncRequestId + '\')',
+                        'UTF-8'
+                    );
+                
+                HttpRequest req = new HttpRequest();
+                req.setEndpoint(endpoint);
+                req.setMethod('GET');
+                req.setHeader('Authorization', 'Bearer ' + UserInfo.getSessionId());
+                req.setHeader('Content-Type', 'application/json');
+                
+                Http http = new Http();
+                HttpResponse res = http.send(req);
+                
+                if (res.getStatusCode() == 200) {
+                    Map<String, Object> queryResult = (Map<String, Object>) JSON.deserializeUntyped(res.getBody());
+                    List<Object> records = (List<Object>) queryResult.get('records');
+                    
+                    if (records != null) {
+                        for (Object record : records) {
+                            Map<String, Object> rec = (Map<String, Object>) record;
+                            String compilerErrors = (String) rec.get('CompilerErrors');
+                            
+                            if (String.isNotBlank(compilerErrors) && compilerErrors != '[]' && compilerErrors != 'null') {
+                                Map<String, Object> contentEntity = (Map<String, Object>) rec.get('ContentEntity');
+                                if (contentEntity != null) {
+                                    String componentName = (String) contentEntity.get('Name');
+                                    String parsedError = parseCompilerError(compilerErrors);
+                                    componentErrors.put(componentName, parsedError);
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                System.debug('Error parsing component errors: ' + e.getMessage());
+            }
+            
+            return componentErrors;
+        }
+        
+        private String parseCompilerError(String compilerErrorsJson) {
+            try {
+                List<Object> errors = (List<Object>) JSON.deserializeUntyped(compilerErrorsJson);
+                if (!errors.isEmpty()) {
+                    List<String> errorMessages = new List<String>();
+                    for (Object err : errors) {
+                        Map<String, Object> errorObj = (Map<String, Object>) err;
+                        String problem = (String) errorObj.get('problem');
+                        Object lineObj = errorObj.get('line');
+                        if (String.isNotBlank(problem)) {
+                            String msg = problem;
+                            if (lineObj != null) {
+                                msg = 'Line ' + String.valueOf(lineObj) + ': ' + problem;
+                            }
+                            errorMessages.add(msg);
+                        }
+                    }
+                    return String.join(errorMessages, '; ');
+                }
+            } catch (Exception e) {
+                return compilerErrorsJson;
+            }
+            return '';
+        }
+    }
+    
     private static void updatePlanSummary(String planId) {
         Map<String, Integer> summary = new Map<String, Integer>();
         

@@ -488,4 +488,9 @@ public with sharing class ApiVersionUpdaterController {
     public static void markItemsAsManuallyDeployed(List<Id> itemIds) {
         DeploymentService.markItemsAsManuallyDeployed(itemIds);
     }
+    
+    @AuraEnabled
+    public static Map<String, Object> validateSelectedItems(String planId, List<String> selectedItemIds) {
+        return DeploymentService.validateSelectedItems(planId, selectedItemIds);
+    }
 }

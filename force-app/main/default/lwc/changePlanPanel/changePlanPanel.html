@@ -100,6 +100,43 @@
                             </div>
                         </div>
 
+                        <!-- Validation Results Panel -->
+                        <template lwc:if={hasValidationErrors}>
+                            <div class="validation-error-panel slds-m-top_medium">
+                                <div class="validation-error-header">
+                                    <lightning-icon icon-name="utility:warning" size="small" variant="warning"></lightning-icon>
+                                    <h3 class="slds-text-heading_small">Validation Failed - {validationErrorCount} Error(s)</h3>
+                                </div>
+                                <div class="validation-error-content">
+                                    <p class="slds-text-body_small slds-m-bottom_x-small">
+                                        The following components have compilation errors that must be fixed before deployment:
+                                    </p>
+                                    <ul class="validation-error-list">
+                                        <template for:each={validationErrorItems} for:item="errorItem">
+                                            <li key={errorItem.id} class="validation-error-item">
+                                                <strong>{errorItem.fullName}</strong>: {errorItem.error}
+                                            </li>
+                                        </template>
+                                    </ul>
+                                    <p class="slds-text-body_small slds-m-top_small slds-text-color_weak">
+                                        Fix these errors in Salesforce Setup, then re-validate.
+                                    </p>
+                                </div>
+                            </div>
+                        </template>
+                        
+                        <!-- Validation Success Panel -->
+                        <template lwc:if={validationComplete}>
+                            <template lwc:if={showValidationSuccess}>
+                                <div class="validation-success-panel slds-m-top_medium">
+                                    <lightning-icon icon-name="utility:success" size="small" variant="success"></lightning-icon>
+                                    <span class="slds-m-left_x-small">
+                                        <strong>{validatedCount}</strong> component(s) validated successfully and ready for deployment
+                                    </span>
+                                </div>
+                            </template>
+                        </template>
+
                         <!-- Failure Error Panel -->
                         <template lwc:if={hasDeploymentFailed}>
                             <div class="error-panel slds-m-top_medium">

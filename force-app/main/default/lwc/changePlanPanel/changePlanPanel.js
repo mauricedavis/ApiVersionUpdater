@@ -8,6 +8,7 @@ import previewRefactor from '@salesforce/apex/ApiVersionUpdaterController.previe
 import applyRefactor from '@salesforce/apex/ApiVersionUpdaterController.applyRefactor';
 import cleanupOrphanedContainers from '@salesforce/apex/ApiVersionUpdaterController.cleanupOrphanedContainers';
 import markItemsAsManuallyDeployed from '@salesforce/apex/ApiVersionUpdaterController.markItemsAsManuallyDeployed';
+import validateSelectedItems from '@salesforce/apex/ApiVersionUpdaterController.validateSelectedItems';
 
 export default class ChangePlanPanel extends LightningElement {
     @api changePlan = {};
@@ -848,9 +849,10 @@ User u = new User(Username = uniqueValue + '@test.com', ...);`
                 validationStatus: this.getValidationStatus(item, isValidated, validationError),
                 validationClass: this.getValidationClass(item, isValidated, validationError),
                 validationIcon: this.getValidationIcon(item, isValidated, validationError),
+                validationError: validationError || null,
                 statusClass: this.getStatusClass(item.applyStatus),
                 applyStatusClass: this.getApplyStatusClass(item.applyStatus),
-                displayNotes: item.errorDetails || item.blockReason || ''
+                displayNotes: validationError || item.errorDetails || item.blockReason || ''
             };
         });
 
@@ -921,6 +923,33 @@ User u = new User(Username = uniqueValue + '@test.com', ...);`
 
     get validatedCount() {
         return this.validationResults?.validatedIds?.length || 0;
+    }
+    
+    get validationErrorCount() {
+        const errors = this.validationResults?.errors;
+        return errors ? Object.keys(errors).length : 0;
+    }
+    
+    get hasValidationErrors() {
+        return this.validationErrorCount > 0;
+    }
+    
+    get showValidationSuccess() {
+        return this.validationComplete && !this.hasValidationErrors && this.validatedCount > 0;
+    }
+    
+    get validationErrorItems() {
+        const errors = this.validationResults?.errors;
+        if (!errors) return [];
+        
+        return Object.entries(errors).map(([itemId, error]) => {
+            const item = this.changeItems.find(i => i.id === itemId);
+            return {
+                id: itemId,
+                fullName: item?.fullName || 'Unknown',
+                error: error
+            };
+        });
     }
 
     get failedItemsCount() {
@@ -1109,35 +1138,80 @@ User u = new User(Username = uniqueValue + '@test.com', ...);`
         this.validationResults = null;
     }
 
-    handleValidate() {
+    async handleValidate() {
         this.isValidating = true;
+        this.deploymentError = null;
         
         console.log('handleValidate starting with selectedItemIds:', this.selectedItemIds);
         
-        setTimeout(() => {
-            const validatedIds = this.selectedItemIds.filter(id => 
-                this.eligibleItems.some(item => item.id === id)
-            );
+        try {
+            const result = await validateSelectedItems({
+                planId: this.changePlan.id,
+                selectedItemIds: this.selectedItemIds
+            });
             
-            console.log('Validation complete. validatedIds:', validatedIds);
+            console.log('Validation result:', result);
+            
+            const validatedIds = result.validatedIds || [];
+            const errors = result.errors || {};
             
             this.validationResults = {
                 validatedIds: validatedIds,
-                errors: {},
-                timestamp: new Date().toISOString()
+                errors: errors,
+                timestamp: new Date().toISOString(),
+                message: result.message
             };
             
-            this.validationComplete = true;
-            this.isValidating = false;
+            this.validationComplete = Object.keys(errors).length === 0 && validatedIds.length > 0;
+            
+            if (Object.keys(errors).length > 0) {
+                const errorList = Object.entries(errors).map(([itemId, error]) => {
+                    const item = this.changeItems.find(i => i.id === itemId);
+                    return item ? `${item.fullName}: ${error}` : error;
+                });
+                
+                this.deploymentError = 'Validation failed:\n' + errorList.join('\n');
+                
+                this.dispatchEvent(new ShowToastEvent({
+                    title: 'Validation Failed',
+                    message: `${validatedIds.length} passed, ${Object.keys(errors).length} failed`,
+                    variant: 'warning'
+                }));
+            } else if (validatedIds.length > 0) {
+                this.dispatchEvent(new ShowToastEvent({
+                    title: 'Validation Successful',
+                    message: `${validatedIds.length} component(s) validated and ready for deployment`,
+                    variant: 'success'
+                }));
+            } else {
+                this.dispatchEvent(new ShowToastEvent({
+                    title: 'No Items Validated',
+                    message: result.message || 'No eligible items to validate',
+                    variant: 'info'
+                }));
+            }
             
             this.dispatchEvent(new CustomEvent('validationcomplete', {
                 detail: {
                     planId: this.changePlan.id,
                     validatedCount: validatedIds.length,
-                    selectedIds: validatedIds
+                    selectedIds: validatedIds,
+                    errors: errors
                 }
             }));
-        }, 2000);
+            
+        } catch (error) {
+            console.error('Validation error:', error);
+            this.deploymentError = 'Validation error: ' + (error.body?.message || error.message || 'Unknown error');
+            
+            this.dispatchEvent(new ShowToastEvent({
+                title: 'Validation Error',
+                message: error.body?.message || error.message || 'An error occurred during validation',
+                variant: 'error'
+            }));
+        } finally {
+            this.isValidating = false;
+        }
     }
 
     handleDeployClick() {
