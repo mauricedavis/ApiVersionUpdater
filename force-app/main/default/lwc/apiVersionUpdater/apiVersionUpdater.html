@@ -176,37 +176,20 @@
                         </div>
                     </template>
 
-                    <!-- Step 2: Review Findings -->
-                    <template lwc:if={showReviewView}>
+                    <!-- Step 2: Deployment & Backup (checked first to take priority) -->
+                    <template lwc:if={showDeployView}>
                         <div class="slds-p-around_small">
-                            <template lwc:if={hasScanResults}>
-                                <c-findings-panel
-                                    scan-id={selectedScanId}
-                                    findings={findings}
-                                    findings-summary={findingsSummary}
-                                    target-version={settings.targetApiVersion}
-                                    scope-policy={settings.scopePolicy}
-                                    scan-alerts-count={alertsCount}
-                                    oncreateplan={handleCreatePlan}
-                                    onshowerror={handleShowError}>
-                                </c-findings-panel>
-                            </template>
-                            <template lwc:else>
-                                <lightning-card title="Review Findings" icon-name="utility:search">
-                                    <div class="slds-p-around_large slds-text-align_center">
-                                        <lightning-icon icon-name="utility:info" size="large" class="slds-m-bottom_small"></lightning-icon>
-                                        <h3 class="slds-text-heading_medium">No Findings to Review</h3>
-                                        <p class="slds-text-body_regular slds-text-color_weak slds-m-top_small">
-                                            Complete a scan to view findings and create a change plan.
-                                        </p>
-                                    </div>
-                                </lightning-card>
-                            </template>
+                            <c-backup-restore-panel
+                                deployment-run-id={currentDeploymentRunId}
+                                plan-id={currentPlanId}
+                                has-backup={hasBackup}
+                                onbackupcleanedup={handleBackupCleanedUp}>
+                            </c-backup-restore-panel>
                         </div>
                     </template>
 
                     <!-- Step 3: Change Plan -->
-                    <template lwc:if={showPlanView}>
+                    <template lwc:elseif={showPlanView}>
                         <div class="slds-p-around_small">
                             <template lwc:if={hasChangePlan}>
                                 <c-change-plan-panel
@@ -232,15 +215,32 @@
                         </div>
                     </template>
 
-                    <!-- Step 4: Deployment & Backup -->
-                    <template lwc:if={showDeployView}>
+                    <!-- Step 4: Review Findings (default fallback) -->
+                    <template lwc:elseif={showReviewView}>
                         <div class="slds-p-around_small">
-                            <c-backup-restore-panel
-                                deployment-run-id={currentDeploymentRunId}
-                                plan-id={currentPlanId}
-                                has-backup={hasBackup}
-                                onbackupcleanedup={handleBackupCleanedUp}>
-                            </c-backup-restore-panel>
+                            <template lwc:if={hasScanResults}>
+                                <c-findings-panel
+                                    scan-id={selectedScanId}
+                                    findings={findings}
+                                    findings-summary={findingsSummary}
+                                    target-version={settings.targetApiVersion}
+                                    scope-policy={settings.scopePolicy}
+                                    scan-alerts-count={alertsCount}
+                                    oncreateplan={handleCreatePlan}
+                                    onshowerror={handleShowError}>
+                                </c-findings-panel>
+                            </template>
+                            <template lwc:else>
+                                <lightning-card title="Review Findings" icon-name="utility:search">
+                                    <div class="slds-p-around_large slds-text-align_center">
+                                        <lightning-icon icon-name="utility:info" size="large" class="slds-m-bottom_small"></lightning-icon>
+                                        <h3 class="slds-text-heading_medium">No Findings to Review</h3>
+                                        <p class="slds-text-body_regular slds-text-color_weak slds-m-top_small">
+                                            Complete a scan to view findings and create a change plan.
+                                        </p>
+                                    </div>
+                                </lightning-card>
+                            </template>
                         </div>
                     </template>
 

@@ -65,12 +65,14 @@ export default class FindingsPanel extends LightningElement {
           typeAttributes: { minimumFractionDigits: 1, maximumFractionDigits: 1 }, sortable: true },
         { label: 'Gap', fieldName: 'versionGap', type: 'number', sortable: true,
           cellAttributes: { class: { fieldName: 'gapClass' } } },
-        { label: 'Alert', fieldName: 'alertReason', type: 'button', 
-          typeAttributes: {
+        { label: 'Alert', fieldName: 'alertReason', type: 'button',
+          typeAttributes: { 
             label: { fieldName: 'alertReason' },
             name: 'viewAlert',
             variant: 'base',
-            disabled: { fieldName: 'noAlert' }
+            disabled: { fieldName: 'noAlert' },
+            iconName: { fieldName: 'alertIcon' },
+            iconPosition: 'left'
           }
         },
         { label: 'Last Modified', fieldName: 'lastModifiedDate', type: 'date',
@@ -112,17 +114,47 @@ export default class FindingsPanel extends LightningElement {
             for (const [type, artifacts] of Object.entries(result.byType)) {
                 processedData.byType[type] = artifacts.map(a => {
                     const finding = findingsMap.get(a.fullName) || findingsMap.get(a.developerName);
+                    const versionGap = result.targetApiVersion - a.apiVersion;
+                    
+                    let alertIcon = null;
+                    let alertReason = '';
+                    let alertSeverity = null;
+                    let alertClass = '';
+                    let hasFinding = false;
+                    
+                    if (finding) {
+                        alertIcon = this.getAlertIcon(finding.severity);
+                        alertReason = finding.summary;
+                        alertSeverity = finding.severity;
+                        alertClass = finding.severity === 'Critical' ? 'slds-text-color_error' : 
+                                     finding.severity === 'Warning' ? 'slds-text-color_warning' : '';
+                        hasFinding = true;
+                    } else if (versionGap > 10) {
+                        alertIcon = 'utility:warning';
+                        alertReason = `Large version gap (${versionGap} versions behind)`;
+                        alertSeverity = 'Warning';
+                        alertClass = 'slds-text-color_warning';
+                        hasFinding = true;
+                    } else if (versionGap > 5) {
+                        alertIcon = 'utility:info';
+                        alertReason = `Moderate version gap (${versionGap} versions behind)`;
+                        alertSeverity = 'Info';
+                        alertClass = '';
+                        hasFinding = true;
+                    }
+                    
                     return {
                         ...a,
-                        versionGap: result.targetApiVersion - a.apiVersion,
-                        gapClass: this.getGapClass(result.targetApiVersion - a.apiVersion),
-                        hasFinding: !!finding,
-                        alertIcon: finding ? this.getAlertIcon(finding.severity) : null,
-                        alertReason: finding ? finding.summary : '',
-                        alertSeverity: finding ? finding.severity : null,
+                        versionGap: versionGap,
+                        gapClass: this.getGapClass(versionGap),
+                        hasFinding: hasFinding,
+                        alertIcon: alertIcon,
+                        alertReason: alertReason,
+                        alertClass: alertClass,
+                        alertSeverity: alertSeverity,
                         alertCategory: finding ? finding.category : null,
                         alertFindingId: finding ? finding.id : null,
-                        noAlert: !finding,
+                        noAlert: !hasFinding,
                         recordUrl: this.getRecordUrl(a.id, type)
                     };
                 });
@@ -219,10 +251,9 @@ export default class FindingsPanel extends LightningElement {
     }
 
     get alertCount() {
-        if (this.scanAlertsCount > 0) {
-            return this.scanAlertsCount;
+        if (!this.nonCompliantData) {
+            return this.scanAlertsCount || 0;
         }
-        if (!this.nonCompliantData) return 0;
         let count = 0;
         for (const artifacts of Object.values(this.nonCompliantData.byType)) {
             count += artifacts.filter(a => a.hasFinding).length;
@@ -479,12 +510,12 @@ export default class FindingsPanel extends LightningElement {
         const action = event.detail.action;
         const row = event.detail.row;
 
-        if (action.name === 'viewAlert' && row.alertFindingId) {
-            this.scrollToFinding(row.developerName);
+        if (action.name === 'viewAlert' && row.hasFinding) {
+            this.scrollToFinding(row.developerName, row.alertFindingId, row.alertReason);
         }
     }
 
-    scrollToFinding(artifactName) {
+    scrollToFinding(artifactName, findingId, alertReason) {
         const findingElement = this.template.querySelector(`[data-finding-name="${artifactName}"]`);
         if (findingElement) {
             findingElement.scrollIntoView({ behavior: 'smooth', block: 'center' });

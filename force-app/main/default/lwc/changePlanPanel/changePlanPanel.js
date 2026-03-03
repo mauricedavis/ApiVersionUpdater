@@ -7,6 +7,7 @@ import analyzeClassForRefactor from '@salesforce/apex/ApiVersionUpdaterControlle
 import previewRefactor from '@salesforce/apex/ApiVersionUpdaterController.previewRefactor';
 import applyRefactor from '@salesforce/apex/ApiVersionUpdaterController.applyRefactor';
 import cleanupOrphanedContainers from '@salesforce/apex/ApiVersionUpdaterController.cleanupOrphanedContainers';
+import markItemsAsManuallyDeployed from '@salesforce/apex/ApiVersionUpdaterController.markItemsAsManuallyDeployed';
 
 export default class ChangePlanPanel extends LightningElement {
     @api changePlan = {};
@@ -190,6 +191,9 @@ export default class ChangePlanPanel extends LightningElement {
         if (errorText.includes('System.LimitException') || errorText.includes('Too many SOQL')) {
             return 'GOVERNOR_LIMIT';
         }
+        if (errorText.includes('timed out') || errorText.includes('Status: Queued') || errorText.includes('Status: Pending')) {
+            return 'DEPLOYMENT_TIMEOUT';
+        }
         return null;
     }
 
@@ -361,6 +365,22 @@ User u = new User(Username = uniqueValue + '@test.com', ...);`
                     'Review the code for SOQL queries inside loops',
                     'Bulkify DML operations',
                     'Consider using Batch Apex for large data volumes'
+                ],
+                fixOptions: []
+            },
+            'DEPLOYMENT_TIMEOUT': {
+                title: 'Deployment Timeout',
+                description: 'The Tooling API deployment did not complete in time. This can happen due to Salesforce server load or session limitations. You can manually update the API version in Salesforce Setup.',
+                quickFix: null,
+                codeFix: null,
+                canQuickFix: false,
+                canManualDeploy: true,
+                steps: [
+                    'Click "Open in Setup" next to each component below',
+                    'Click "Edit" on the class/trigger/page',
+                    'Change the "API Version" field to the target version',
+                    'Click "Save"',
+                    'Repeat for each component, then click "Mark as Deployed" below'
                 ],
                 fixOptions: []
             }
@@ -645,6 +665,10 @@ User u = new User(Username = uniqueValue + '@test.com', ...);`
         return this.errorPatternGuidance?.canQuickFix === true;
     }
 
+    get showManualDeployOption() {
+        return this.errorPatternGuidance?.canManualDeploy === true;
+    }
+
     handleQuickFix() {
         // Use validated items first, then selected items - NEVER fall back to all eligible
         let selectedIds = [];
@@ -674,6 +698,38 @@ User u = new User(Username = uniqueValue + '@test.com', ...);`
                 selectedItemIds: selectedIds
             }
         }));
+    }
+
+    async handleMarkAsDeployed() {
+        try {
+            const failedItemIds = this.failedItems.map(item => item.id);
+            
+            if (failedItemIds.length === 0) {
+                this.dispatchEvent(new ShowToastEvent({
+                    title: 'No Items',
+                    message: 'No failed items to mark as deployed.',
+                    variant: 'warning'
+                }));
+                return;
+            }
+            
+            await markItemsAsManuallyDeployed({ itemIds: failedItemIds });
+            
+            this.dispatchEvent(new ShowToastEvent({
+                title: 'Success',
+                message: `${failedItemIds.length} item(s) marked as manually deployed.`,
+                variant: 'success'
+            }));
+            
+            this.dispatchEvent(new CustomEvent('planreset'));
+            
+        } catch (error) {
+            this.dispatchEvent(new ShowToastEvent({
+                title: 'Error',
+                message: error.body?.message || error.message || 'Failed to mark items as deployed',
+                variant: 'error'
+            }));
+        }
     }
 
     async loadDeploymentError() {

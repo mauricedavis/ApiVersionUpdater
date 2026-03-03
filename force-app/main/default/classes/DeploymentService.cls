@@ -888,4 +888,70 @@ public with sharing class DeploymentService {
             return null;
         }
     }
+    
+    public static void markItemsAsManuallyDeployed(List<Id> itemIds) {
+        if (itemIds == null || itemIds.isEmpty()) {
+            return;
+        }
+        
+        List<ChangeItem__c> items = [
+            SELECT Id, ApplyStatus__c, ErrorDetails__c, ChangePlan__c
+            FROM ChangeItem__c
+            WHERE Id IN :itemIds
+        ];
+        
+        Set<Id> planIds = new Set<Id>();
+        for (ChangeItem__c item : items) {
+            item.ApplyStatus__c = 'Applied';
+            item.ErrorDetails__c = 'Manually deployed by user';
+            if (item.ChangePlan__c != null) {
+                planIds.add(item.ChangePlan__c);
+            }
+        }
+        
+        if (!items.isEmpty()) {
+            update items;
+        }
+        
+        for (Id planId : planIds) {
+            updatePlanStatusAfterDeployment(planId);
+        }
+    }
+    
+    private static void updatePlanStatusAfterDeployment(Id planId) {
+        List<ChangeItem__c> allItems = [
+            SELECT Id, ApplyStatus__c
+            FROM ChangeItem__c
+            WHERE ChangePlan__c = :planId
+        ];
+        
+        Integer appliedCount = 0;
+        Integer failedCount = 0;
+        Integer totalCount = allItems.size();
+        
+        for (ChangeItem__c item : allItems) {
+            if (item.ApplyStatus__c == 'Applied') {
+                appliedCount++;
+            } else if (item.ApplyStatus__c == 'Failed') {
+                failedCount++;
+            }
+        }
+        
+        String newStatus;
+        if (appliedCount == totalCount) {
+            newStatus = 'Completed';
+        } else if (appliedCount > 0) {
+            newStatus = 'PartiallyCompleted';
+        } else if (failedCount == totalCount) {
+            newStatus = 'Failed';
+        } else {
+            newStatus = 'InProgress';
+        }
+        
+        ChangePlan__c plan = new ChangePlan__c(
+            Id = planId,
+            Status__c = newStatus
+        );
+        update plan;
+    }
 }

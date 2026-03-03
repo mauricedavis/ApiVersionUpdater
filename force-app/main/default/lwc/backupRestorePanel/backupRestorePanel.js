@@ -59,6 +59,9 @@ const DEPLOYMENT_HISTORY_COLUMNS = [
     { label: 'Status', fieldName: 'status', type: 'text', sortable: true, initialWidth: 100 },
     { label: 'Deployed At', fieldName: 'deployedAt', type: 'date', sortable: true,
         typeAttributes: { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }
+    },
+    { label: 'View', fieldName: 'componentUrl', type: 'url', initialWidth: 80,
+        typeAttributes: { label: 'Open', target: '_blank', tooltip: 'Open component in Salesforce Setup' }
     }
 ];
 
@@ -451,13 +454,22 @@ export default class BackupRestorePanel extends LightningElement {
         this.isLoading = true;
         try {
             const history = await getDeploymentHistory({ planId: this.planId });
-            this.deploymentHistoryItems = history;
+            this.deploymentHistoryItems = history.map(item => ({
+                ...item,
+                componentUrl: this.getComponentUrl(item.componentId)
+            }));
             this.deploymentHistoryLoaded = true;
         } catch (error) {
             this.handleError(error);
         } finally {
             this.isLoading = false;
         }
+    }
+    
+    getComponentUrl(componentId) {
+        if (!componentId) return null;
+        const baseUrl = window.location.origin;
+        return `${baseUrl}/${componentId}`;
     }
     
     handleError(error) {

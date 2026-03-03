@@ -243,19 +243,28 @@ export default class ApiVersionUpdater extends LightningElement {
     }
 
     get showScanningView() {
-        return this.activeView === 'scanning' || (this.workflowStep === 1 && this.isScanRunning);
+        return this.activeView === 'scanning' || (this.workflowStep === 1 && this.isScanRunning && !this.activeView);
     }
 
     get showReviewView() {
-        return this.activeView === 'review' || (this.workflowStep === 1 && !this.isScanRunning);
+        // Show review if explicitly selected OR default when on step 1 with no explicit selection
+        if (this.activeView === 'review') return true;
+        if (this.activeView === 'plan' || this.activeView === 'deploy') return false;
+        return this.workflowStep === 1 && !this.isScanRunning;
     }
 
     get showPlanView() {
-        return this.activeView === 'plan' || this.workflowStep === 2;
+        // Show plan if explicitly selected OR default when on step 2 with no explicit selection
+        if (this.activeView === 'plan') return true;
+        if (this.activeView === 'review' || this.activeView === 'deploy') return false;
+        return this.workflowStep === 2;
     }
 
     get showDeployView() {
-        return this.activeView === 'deploy' || this.workflowStep === 3;
+        // Show deploy if explicitly selected OR default when on step 3 with no explicit selection
+        if (this.activeView === 'deploy') return true;
+        if (this.activeView === 'review' || this.activeView === 'plan') return false;
+        return this.workflowStep === 3;
     }
 
     get currentScanName() {
@@ -935,6 +944,20 @@ export default class ApiVersionUpdater extends LightningElement {
             this.changeItems = items;
             
             this.currentDeploymentRunId = null;
+            this.deploymentRunStatus = null;
+            this.hasBackup = false;
+            
+            // Clear deployment stats from session
+            if (this.session) {
+                this.session = {
+                    ...this.session,
+                    currentDeploymentRunId: null,
+                    currentDeploymentStatus: null,
+                    currentDeploymentSuccessCount: 0,
+                    currentDeploymentFailCount: 0,
+                    currentDeploymentTotalProcessed: 0
+                };
+            }
             
             this.showToast('Plan Reset', 'Plan has been reset. You can now re-validate and deploy.', 'success');
         } catch (err) {

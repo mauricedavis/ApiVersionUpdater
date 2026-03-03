@@ -412,7 +412,43 @@ public with sharing class ApiVersionUpdaterController {
             LIMIT 200
         ];
         
+        // Collect names by type to batch query component IDs
+        Map<String, Set<String>> namesByType = new Map<String, Set<String>>();
         for (ChangeItem__c item : items) {
+            if (!namesByType.containsKey(item.ArtifactType__c)) {
+                namesByType.put(item.ArtifactType__c, new Set<String>());
+            }
+            namesByType.get(item.ArtifactType__c).add(item.FullName__c);
+        }
+        
+        // Query component IDs by type
+        Map<String, Id> componentIdByKey = new Map<String, Id>();
+        
+        if (namesByType.containsKey('ApexClass')) {
+            for (ApexClass cls : [SELECT Id, Name FROM ApexClass WHERE Name IN :namesByType.get('ApexClass')]) {
+                componentIdByKey.put('ApexClass:' + cls.Name, cls.Id);
+            }
+        }
+        if (namesByType.containsKey('ApexTrigger')) {
+            for (ApexTrigger trg : [SELECT Id, Name FROM ApexTrigger WHERE Name IN :namesByType.get('ApexTrigger')]) {
+                componentIdByKey.put('ApexTrigger:' + trg.Name, trg.Id);
+            }
+        }
+        if (namesByType.containsKey('ApexPage')) {
+            for (ApexPage pg : [SELECT Id, Name FROM ApexPage WHERE Name IN :namesByType.get('ApexPage')]) {
+                componentIdByKey.put('ApexPage:' + pg.Name, pg.Id);
+            }
+        }
+        if (namesByType.containsKey('ApexComponent')) {
+            for (ApexComponent cmp : [SELECT Id, Name FROM ApexComponent WHERE Name IN :namesByType.get('ApexComponent')]) {
+                componentIdByKey.put('ApexComponent:' + cmp.Name, cmp.Id);
+            }
+        }
+        
+        for (ChangeItem__c item : items) {
+            String key = item.ArtifactType__c + ':' + item.FullName__c;
+            Id componentId = componentIdByKey.get(key);
+            
             historyItems.add(new Map<String, Object>{
                 'id' => item.Id,
                 'fullName' => item.FullName__c,
@@ -420,7 +456,8 @@ public with sharing class ApiVersionUpdaterController {
                 'fromVersion' => item.CurrentApiVersion__c,
                 'toVersion' => item.TargetApiVersion__c,
                 'status' => item.ApplyStatus__c,
-                'deployedAt' => item.LastModifiedDate
+                'deployedAt' => item.LastModifiedDate,
+                'componentId' => componentId
             });
         }
         
@@ -445,5 +482,10 @@ public with sharing class ApiVersionUpdaterController {
     @AuraEnabled
     public static Map<String, Object> cleanupOrphanedContainers() {
         return CodeRefactorService.cleanupOrphanedContainers();
+    }
+    
+    @AuraEnabled
+    public static void markItemsAsManuallyDeployed(List<Id> itemIds) {
+        DeploymentService.markItemsAsManuallyDeployed(itemIds);
     }
 }

@@ -353,6 +353,36 @@
     color: #2e844a;
 }
 
+.manual-deploy-box {
+    background: linear-gradient(135deg, #fff8e5 0%, #fffcf0 100%);
+    border: 1px solid #f2b518;
+    border-radius: 0.375rem;
+    padding: 0.75rem 1rem;
+    margin-top: 0.75rem;
+}
+
+.manual-deploy-content {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+}
+
+.manual-deploy-icon {
+    color: #a86403;
+    flex-shrink: 0;
+    margin-top: 0.125rem;
+}
+
+.manual-deploy-content strong {
+    color: #a86403;
+}
+
+.manual-deploy-note {
+    font-size: 0.8125rem;
+    color: #444;
+    margin: 0.25rem 0 0 0;
+}
+
 .code-fix-section {
     font-size: 0.8125rem;
 }

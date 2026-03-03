@@ -51,6 +51,8 @@ The application provides a modern, streamlined interface with step-based navigat
 - Deployment of selected components only
 - Real-time status tracking
 - Detailed error messages for failed deployments
+- **Smart Error Guidance** - Contextual help for common errors (CALLOUT_AFTER_DML, MIXED_DML, timeouts)
+- **Manual Deployment Fallback** - Step-by-step instructions when automated deployment times out
 
 #### Backup & Restore
 - Automatic backup creation during deployment
@@ -58,7 +60,8 @@ The application provides a modern, streamlined interface with step-based navigat
 - Side-by-side diff comparison with current version
 - Individual or bulk restore capability
 - Backup expiration tracking (90 days)
-- Deployment history with version change details
+- Deployment history with version change details and direct component links
+- Manual restore workflow with "Copy Code" and "Open in Setup" options
 
 #### Session Management
 - Persistent session tracking across browser refreshes
@@ -233,7 +236,21 @@ sf project deploy start --source-dir force-app --target-org YOUR_ORG_ALIAS --wat
 
 ## Changelog
 
-### Version 1.1 (Current)
+### Version 1.2 (Current)
+- **Consolidated Scan & Review** - Combined into a single "Scan" workflow step for a cleaner 3-step process (Scan → Plan → Deploy)
+- **Enhanced Alert Display** - Alert column in findings shows version gap warnings with clickable links to scroll to findings
+- **Version Gap Alerts** - Automatic alerts for components with large (>10) or moderate (>5) version gaps
+- **Deployment Timeout Handling** - Smart detection of deployment timeouts with manual deployment workflow option
+- **Manual Deployment Workflow** - When automated deployment times out, provides step-by-step instructions with "Open in Setup" links and "Mark as Deployed" functionality
+- **Plan Reset Sync** - Reset Plan now properly clears deployment status from the Deploy card
+- **Deployment History Links** - Direct "Open" links to components in Deployment History for single-click review
+- **Extended API Version Range** - Support for legacy components down to API version 21.0
+- **Improved Scan Performance** - Bulkified queries and pagination for large org inventories
+- **Cancel Scan Fix** - Cancel button now properly stops running scans
+- **Alert Count Sync** - Synchronized alert counts between Scan card and findings panel
+- **Backup Error Handling** - Fixed "List has no rows" errors during backup creation
+
+### Version 1.1
 - **Simplified Navigation** - Replaced tab-based navigation with step-based workflow using the progress stepper
 - **Test Level Selection** - Choose No Tests, Run Local Tests, or Run All Tests during deployment
 - **Recent Sessions** - Moved scan history to Dashboard for quick access to previous work

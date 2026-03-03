@@ -226,6 +226,26 @@
                                                     </lightning-button>
                                                 </div>
                                             </template>
+
+                                            <!-- Manual Deploy Option (for timeout errors) -->
+                                            <template lwc:if={showManualDeployOption}>
+                                                <div class="manual-deploy-box slds-m-top_medium">
+                                                    <div class="manual-deploy-content">
+                                                        <lightning-icon icon-name="utility:touch_action" size="x-small" class="manual-deploy-icon"></lightning-icon>
+                                                        <div>
+                                                            <strong>Manual Deployment Required</strong>
+                                                            <p class="manual-deploy-note">The automated deployment timed out. Please manually update each component's API version in Salesforce Setup using the links above, then click "Mark as Deployed" to update the status.</p>
+                                                        </div>
+                                                    </div>
+                                                    <lightning-button
+                                                        variant="success"
+                                                        label="Mark as Deployed"
+                                                        icon-name="utility:check"
+                                                        onclick={handleMarkAsDeployed}
+                                                        class="slds-m-top_small">
+                                                    </lightning-button>
+                                                </div>
+                                            </template>
                                         </div>
                                     </template>
                                     
