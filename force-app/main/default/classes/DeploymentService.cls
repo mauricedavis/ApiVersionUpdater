@@ -584,6 +584,12 @@ public with sharing class DeploymentService {
                 throw new DeploymentException('Could not retrieve body for: ' + fullName);
             }
             
+            // Get current API version for the header comment
+            Decimal currentVersion = getCurrentApiVersion(artifactType, fullName);
+            
+            // Update the body with header comments documenting the API version change
+            String updatedBody = updateHeaderComments(currentBody, currentVersion, targetVersion, artifactType);
+            
             String endpoint = URL.getOrgDomainUrl().toExternalForm() + 
                 '/services/data/v65.0/tooling/sobjects/' + memberType;
             
@@ -592,7 +598,7 @@ public with sharing class DeploymentService {
             Map<String, Object> member = new Map<String, Object>{
                 'MetadataContainerId' => containerId,
                 'ContentEntityId' => contentEntityId,
-                'Body' => currentBody,
+                'Body' => updatedBody,
                 'Metadata' => metadata
             };
             
@@ -612,6 +618,139 @@ public with sharing class DeploymentService {
                 String errorMsg = parseErrorMessage(res.getBody());
                 throw new DeploymentException('Add member failed (' + res.getStatusCode() + '): ' + errorMsg);
             }
+        }
+        
+        private Decimal getCurrentApiVersion(String artifactType, String fullName) {
+            try {
+                if (artifactType == 'ApexClass') {
+                    List<ApexClass> classes = [SELECT ApiVersion FROM ApexClass WHERE Name = :fullName LIMIT 1];
+                    return classes.isEmpty() ? null : classes[0].ApiVersion;
+                } else if (artifactType == 'ApexTrigger') {
+                    List<ApexTrigger> triggers = [SELECT ApiVersion FROM ApexTrigger WHERE Name = :fullName LIMIT 1];
+                    return triggers.isEmpty() ? null : triggers[0].ApiVersion;
+                } else if (artifactType == 'ApexPage') {
+                    List<ApexPage> pages = [SELECT ApiVersion FROM ApexPage WHERE Name = :fullName LIMIT 1];
+                    return pages.isEmpty() ? null : pages[0].ApiVersion;
+                } else if (artifactType == 'ApexComponent') {
+                    List<ApexComponent> comps = [SELECT ApiVersion FROM ApexComponent WHERE Name = :fullName LIMIT 1];
+                    return comps.isEmpty() ? null : comps[0].ApiVersion;
+                }
+            } catch (Exception e) {
+                System.debug('Error getting current API version: ' + e.getMessage());
+            }
+            return null;
+        }
+        
+        private String updateHeaderComments(String body, Decimal fromVersion, Decimal toVersion, String artifactType) {
+            if (String.isBlank(body)) {
+                return body;
+            }
+            
+            // Only update Apex code (classes, triggers) - not VF pages/components
+            if (artifactType != 'ApexClass' && artifactType != 'ApexTrigger') {
+                return body;
+            }
+            
+            String currentDate = Date.today().format();
+            String currentUser = UserInfo.getName();
+            String versionUpdateNote = 'API version updated from ' + 
+                (fromVersion != null ? String.valueOf(fromVersion) : 'unknown') + 
+                ' to ' + String.valueOf(toVersion) + ' on ' + currentDate + ' by API Version Updater';
+            
+            // Check if there's an existing header comment block
+            Pattern headerPattern = Pattern.compile('(?s)^\\s*/\\*\\*(.+?)\\*/');
+            Matcher headerMatcher = headerPattern.matcher(body);
+            
+            if (headerMatcher.find()) {
+                // Existing header found - update it
+                String existingHeader = headerMatcher.group(0);
+                String headerContent = headerMatcher.group(1);
+                
+                String updatedHeader = updateExistingHeader(headerContent, versionUpdateNote, currentDate, currentUser);
+                return body.replaceFirst('(?s)^\\s*/\\*\\*(.+?)\\*/', '/**' + updatedHeader + '*/');
+            } else {
+                // No header found - add a new one
+                String newHeader = '/**\n' +
+                    ' * @description     : ' + versionUpdateNote + '\n' +
+                    ' * @author          : ' + currentUser + '\n' +
+                    ' * @last modified on  : ' + currentDate + '\n' +
+                    ' * @last modified by  : ' + currentUser + '\n' +
+                    ' */\n';
+                return newHeader + body;
+            }
+        }
+        
+        private String updateExistingHeader(String headerContent, String versionUpdateNote, String currentDate, String currentUser) {
+            List<String> lines = headerContent.split('\n');
+            List<String> updatedLines = new List<String>();
+            Boolean hasDescription = false;
+            Boolean hasLastModifiedOn = false;
+            Boolean hasLastModifiedBy = false;
+            
+            for (String line : lines) {
+                String trimmedLine = line.trim();
+                
+                // Skip @group lines
+                if (trimmedLine.contains('@group')) {
+                    continue;
+                }
+                
+                // Update @description
+                if (trimmedLine.contains('@description')) {
+                    hasDescription = true;
+                    // Extract existing description and append version update
+                    String existingDesc = '';
+                    Integer colonIndex = trimmedLine.indexOf(':');
+                    if (colonIndex > 0 && colonIndex < trimmedLine.length() - 1) {
+                        existingDesc = trimmedLine.substring(colonIndex + 1).trim();
+                    }
+                    if (String.isNotBlank(existingDesc)) {
+                        updatedLines.add(' * @description     : ' + existingDesc + '. ' + versionUpdateNote);
+                    } else {
+                        updatedLines.add(' * @description     : ' + versionUpdateNote);
+                    }
+                    continue;
+                }
+                
+                // Update @last modified on
+                if (trimmedLine.contains('@last modified on') || trimmedLine.contains('@lastmodifiedon')) {
+                    hasLastModifiedOn = true;
+                    updatedLines.add(' * @last modified on  : ' + currentDate);
+                    continue;
+                }
+                
+                // Update @last modified by
+                if (trimmedLine.contains('@last modified by') || trimmedLine.contains('@lastmodifiedby')) {
+                    hasLastModifiedBy = true;
+                    updatedLines.add(' * @last modified by  : ' + currentUser);
+                    continue;
+                }
+                
+                // Keep other lines
+                updatedLines.add(line);
+            }
+            
+            // Add missing fields before the closing
+            List<String> finalLines = new List<String>();
+            for (Integer i = 0; i < updatedLines.size(); i++) {
+                String line = updatedLines[i];
+                finalLines.add(line);
+                
+                // If this is the last content line before closing, add missing fields
+                if (i == updatedLines.size() - 1 || (i < updatedLines.size() - 1 && updatedLines[i + 1].trim() == '')) {
+                    if (!hasDescription) {
+                        finalLines.add(' * @description     : ' + versionUpdateNote);
+                    }
+                    if (!hasLastModifiedOn) {
+                        finalLines.add(' * @last modified on  : ' + currentDate);
+                    }
+                    if (!hasLastModifiedBy) {
+                        finalLines.add(' * @last modified by  : ' + currentUser);
+                    }
+                }
+            }
+            
+            return String.join(finalLines, '\n');
         }
         
         private String parseErrorMessage(String responseBody) {

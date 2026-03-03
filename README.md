@@ -237,6 +237,12 @@ sf project deploy start --source-dir force-app --target-org YOUR_ORG_ALIAS --wat
 ## Changelog
 
 ### Version 1.2 (Current)
+- **Automatic Header Comments** - When updating API versions, automatically updates component header comments with:
+  - `@description` - Adds API version change note (e.g., "API version updated from 50.0 to 56.0 on 03-03-2026 by API Version Updater")
+  - `@last modified on` - Updates to current date
+  - `@last modified by` - Updates to current user
+  - Removes `@group` field if present
+  - Creates header block if none exists
 - **Consolidated Scan & Review** - Combined into a single "Scan" workflow step for a cleaner 3-step process (Scan → Plan → Deploy)
 - **Enhanced Alert Display** - Alert column in findings shows version gap warnings with clickable links to scroll to findings
 - **Version Gap Alerts** - Automatic alerts for components with large (>10) or moderate (>5) version gaps
