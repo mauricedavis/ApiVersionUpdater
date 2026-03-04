@@ -1,0 +1,127 @@
+.setup-progress {
+    padding: 1rem 0;
+}
+
+.progress-steps {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.step-indicator {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    transition: background-color 0.2s;
+}
+
+.step-indicator:hover {
+    background-color: #f3f3f3;
+}
+
+.step-indicator .step-number {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.875rem;
+    margin-bottom: 0.25rem;
+    background-color: #e5e5e5;
+    color: #706e6b;
+}
+
+.step-indicator .step-label {
+    font-size: 0.75rem;
+    color: #706e6b;
+    text-align: center;
+}
+
+.step-indicator.active .step-number {
+    background-color: #0176d3;
+    color: white;
+}
+
+.step-indicator.active .step-label {
+    color: #0176d3;
+    font-weight: 600;
+}
+
+.step-indicator.completed .step-number {
+    background-color: #2e844a;
+    color: white;
+}
+
+.step-indicator.completed .step-number::before {
+    content: '✓';
+}
+
+.step-indicator.completed .step-label {
+    color: #2e844a;
+}
+
+.step-connector {
+    width: 3rem;
+    height: 2px;
+    background-color: #e5e5e5;
+    margin: 0 0.5rem;
+}
+
+.step-content {
+    padding: 1rem;
+    background: #fafaf9;
+    border-radius: 0.5rem;
+}
+
+.instruction-box {
+    background: white;
+    border: 1px solid #dddbda;
+    border-radius: 0.5rem;
+    padding: 1.25rem;
+    margin-top: 1rem;
+}
+
+.instruction-box ol {
+    margin-left: 1.5rem;
+    padding-left: 0;
+}
+
+.instruction-box li {
+    margin-bottom: 0.75rem;
+    line-height: 1.6;
+}
+
+.code-inline {
+    font-family: 'Salesforce Mono', 'SF Mono', 'Monaco', 'Consolas', monospace;
+    background-color: #f3f3f3;
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.25rem;
+    font-size: 0.8125rem;
+    color: #0176d3;
+    user-select: all;
+}
+
+.success-box {
+    padding: 3rem;
+    background: linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%);
+    border-radius: 0.75rem;
+    border: 2px solid #2e844a;
+}
+
+.slds-notify_alert {
+    padding: 1rem;
+    border-radius: 0.5rem;
+    display: flex;
+    align-items: center;
+}
+
+.slds-alert_error {
+    background-color: #fef1f1;
+    border: 1px solid #c23934;
+    color: #c23934;
+}

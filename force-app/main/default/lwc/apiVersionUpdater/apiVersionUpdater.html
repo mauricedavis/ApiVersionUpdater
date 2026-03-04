@@ -34,19 +34,31 @@
         </template>
 
         <template if:false={isLoading}>
-            <template if:true={error}>
+            <!-- Setup Wizard -->
+            <template lwc:if={showSetupWizard}>
                 <div class="slds-p-around_medium">
-                    <div class="slds-notify slds-notify_alert slds-alert_error" role="alert">
-                        <span class="slds-assistive-text">error</span>
-                        <lightning-icon icon-name="utility:error" size="small" class="slds-m-right_x-small"></lightning-icon>
-                        <h2>{error}</h2>
-                    </div>
+                    <c-setup-wizard 
+                        onsetupcomplete={handleSetupComplete}
+                        onsetupskipped={handleSetupSkipped}>
+                    </c-setup-wizard>
                 </div>
             </template>
 
-            <div class="slds-p-around_medium">
-                <!-- Status Summary Card - 4 Step Cards with Integrated Navigation -->
-                <c-status-summary-card
+            <!-- Main Application -->
+            <template lwc:elseif={showMainApp}>
+                <template if:true={error}>
+                    <div class="slds-p-around_medium">
+                        <div class="slds-notify slds-notify_alert slds-alert_error" role="alert">
+                            <span class="slds-assistive-text">error</span>
+                            <lightning-icon icon-name="utility:error" size="small" class="slds-m-right_x-small"></lightning-icon>
+                            <h2>{error}</h2>
+                        </div>
+                    </div>
+                </template>
+
+                <div class="slds-p-around_medium">
+                    <!-- Status Summary Card - 4 Step Cards with Integrated Navigation -->
+                    <c-status-summary-card
                     session={session}
                     current-step={workflowStep}
                     target-api-version={settings.targetApiVersion}
@@ -346,6 +358,7 @@
 
                 </div>
             </div>
+            </template>
         </template>
     </lightning-card>
 </template>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PermissionSet xmlns="http://soap.sforce.com/2006/04/metadata">
+    <description>Grants access to the API Version Updater features. Assign this permission set to users who need to validate and deploy API version changes. After assignment, users must also configure External Credential access separately in Setup.</description>
+    <hasActivationRequired>false</hasActivationRequired>
+    <label>API Version Updater API Access</label>
+</PermissionSet>

@@ -101,9 +101,68 @@ sf org assign permset --name Deployer_Admin --target-org YOUR_ORG_ALIAS
 ```
 
 ### Post-Installation
+
+After deployment, you need to configure Named Credentials for the Tooling API integration. The app includes a Setup Wizard that guides you through this process.
+
+#### Step 1: Create a Connected App
+
+1. Go to **Setup > App Manager > New Connected App**
+2. Fill in the Basic Information:
+   - **Connected App Name**: `API Version Updater`
+   - **API Name**: `API_Version_Updater`
+   - **Contact Email**: Your email address
+3. Enable OAuth Settings:
+   - Check **Enable OAuth Settings**
+   - **Callback URL**: `https://YOUR_ORG_DOMAIN/services/authcallback/API_Version_Updater`
+   - **Selected OAuth Scopes**:
+     - Access the Tooling API (api)
+     - Manage user data via APIs (api)
+     - Perform requests at any time (refresh_token, offline_access)
+4. Check **Enable for Device Flow** (recommended)
+5. Click **Save** and note the Consumer Key and Consumer Secret
+
+#### Step 2: Create External Credential
+
+1. Go to **Setup > Named Credentials > External Credentials**
+2. Click **New**
+3. Configure:
+   - **Label**: `API Version Updater`
+   - **Name**: `API_Version_Updater`
+   - **Authentication Protocol**: OAuth 2.0
+   - **Authentication Flow Type**: Browser Flow
+   - **Identity Provider URL**: Your org URL (e.g., `https://yourorg.my.salesforce.com`)
+   - **Scope**: `api refresh_token`
+4. Add the Consumer Key and Consumer Secret from your Connected App
+5. Add a Principal:
+   - **Principal Name**: `API_Version_Updater_User`
+   - **Principal Type**: Per User Principal
+6. Click **Save**
+
+#### Step 3: Create Named Credential
+
+1. Go to **Setup > Named Credentials > Named Credentials**
+2. Click **New**
+3. Configure:
+   - **Label**: `API Version Updater Tooling API`
+   - **Name**: `API_Version_Updater_Tooling`
+   - **URL**: Your org URL (e.g., `https://yourorg.my.salesforce.com`)
+   - **External Credential**: `API_Version_Updater`
+4. Click **Save**
+
+#### Step 4: Assign Permission Set and Authenticate
+
+1. Go to **Setup > Permission Sets**
+2. Find **API Version Updater API Access** and assign it to users who need access
+3. Go to **Setup > External Credentials > API Version Updater**
+4. Under **User External Credentials**, click your username (or create new)
+5. Click **Authenticate** and complete the OAuth flow in the popup
+
+#### Step 5: Access the Application
+
 1. Navigate to the App Launcher and search for "API Version Updater"
-2. Click the gear icon in the header to configure your target API version
-3. Run your first compliance scan from the Dashboard
+2. The Setup Wizard will verify your configuration
+3. Click the gear icon in the header to configure your target API version
+4. Run your first compliance scan from the Dashboard
 
 ## Data Model
 
@@ -132,6 +191,7 @@ sf org assign permset --name Deployer_Admin --target-org YOUR_ORG_ALIAS
 | `Scanner_ReadOnly` | View scan results only |
 | `Analyzer` | Run scans and create plans |
 | `Deployer_Admin` | Full admin including deployments |
+| `ApiVersionUpdater_API_Access` | Access to Named Credential for Tooling API |
 
 ## Architecture
 
@@ -146,6 +206,7 @@ sf org assign permset --name Deployer_Admin --target-org YOUR_ORG_ALIAS
 | `SessionService` | User session state management |
 | `OrgContextService` | Org information and capabilities |
 | `SettingsService` | Application configuration |
+| `ToolingApiService` | Centralized Tooling API calls via Named Credentials |
 
 ### Lightning Web Components
 | Component | Purpose |
@@ -236,7 +297,27 @@ sf project deploy start --source-dir force-app --target-org YOUR_ORG_ALIAS --wat
 
 ## Changelog
 
-### Version 1.2 (Current)
+### Version 1.3 (Current)
+- **Named Credentials Integration** - Robust OAuth-based authentication for Tooling API calls
+  - Eliminates session timeout issues in Lightning context
+  - Per-User Principal authentication for security
+  - Works reliably across all Salesforce contexts
+- **Setup Wizard** - Interactive step-by-step guide for configuring:
+  - Connected App creation
+  - External Credential setup
+  - Named Credential configuration
+  - User authentication
+- **ToolingApiService** - Centralized service for all Tooling API calls
+  - Consistent error handling
+  - Setup status checking
+  - Automatic authentication via Named Credentials
+- **Real Salesforce Validation** - Validate Selected button now performs actual compilation
+  - Catches syntax errors before deployment
+  - Shows detailed line-by-line error messages
+  - Validation errors displayed in UI with fix guidance
+- **New Permission Set** - `ApiVersionUpdater_API_Access` for Named Credential access
+
+### Version 1.2
 - **Automatic Header Comments** - When updating API versions, automatically updates component header comments with:
   - `@description` - Adds API version change note (e.g., "API version updated from 50.0 to 56.0 on 03-03-2026 by API Version Updater")
   - `@last modified on` - Updates to current date

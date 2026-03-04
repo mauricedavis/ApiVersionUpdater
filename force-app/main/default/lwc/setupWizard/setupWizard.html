@@ -1,0 +1,271 @@
+<template>
+    <lightning-card title="API Version Updater Setup" icon-name="utility:settings">
+        <div class="slds-p-around_medium">
+            
+            <!-- Loading State -->
+            <template lwc:if={isLoading}>
+                <div class="slds-align_absolute-center slds-p-around_large">
+                    <lightning-spinner alternative-text="Checking setup status..."></lightning-spinner>
+                </div>
+            </template>
+
+            <!-- Error State -->
+            <template lwc:elseif={error}>
+                <div class="slds-notify slds-notify_alert slds-alert_error" role="alert">
+                    <lightning-icon icon-name="utility:error" size="small" variant="inverse"></lightning-icon>
+                    <span class="slds-m-left_small">{error}</span>
+                </div>
+                <div class="slds-m-top_medium slds-text-align_center">
+                    <lightning-button label="Retry" onclick={handleRefresh}></lightning-button>
+                </div>
+            </template>
+
+            <!-- Setup Content -->
+            <template lwc:else>
+                
+                <!-- Progress Indicator -->
+                <div class="setup-progress slds-m-bottom_large">
+                    <div class="progress-steps">
+                        <div class={step1Class} data-step="1" onclick={handleGoToStep}>
+                            <span class="step-number">1</span>
+                            <span class="step-label">Connected App</span>
+                        </div>
+                        <div class="step-connector"></div>
+                        <div class={step2Class} data-step="2" onclick={handleGoToStep}>
+                            <span class="step-number">2</span>
+                            <span class="step-label">Named Credential</span>
+                        </div>
+                        <div class="step-connector"></div>
+                        <div class={step3Class} data-step="3" onclick={handleGoToStep}>
+                            <span class="step-number">3</span>
+                            <span class="step-label">Authenticate</span>
+                        </div>
+                        <div class="step-connector"></div>
+                        <div class={step4Class} data-step="4" onclick={handleGoToStep}>
+                            <span class="step-number">4</span>
+                            <span class="step-label">Complete</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 1: Create Connected App -->
+                <template lwc:if={showStep1}>
+                    <div class="step-content">
+                        <h2 class="slds-text-heading_medium slds-m-bottom_small">
+                            <lightning-icon icon-name="utility:connected_apps" size="small" class="slds-m-right_x-small"></lightning-icon>
+                            Step 1: Create Connected App
+                        </h2>
+                        <p class="slds-text-body_regular slds-m-bottom_medium">
+                            A Connected App enables secure OAuth authentication for Tooling API access.
+                        </p>
+                        
+                        <div class="instruction-box">
+                            <ol class="slds-list_ordered">
+                                <li class="slds-m-bottom_small">
+                                    <lightning-button 
+                                        label="Open Connected Apps in Setup" 
+                                        icon-name="utility:new_window"
+                                        data-url={connectedAppsUrl}
+                                        onclick={handleOpenSetup}
+                                        variant="brand">
+                                    </lightning-button>
+                                </li>
+                                <li class="slds-m-bottom_small">Click <strong>New Connected App</strong></li>
+                                <li class="slds-m-bottom_small">
+                                    Fill in Basic Information:
+                                    <ul class="slds-list_dotted slds-m-left_medium slds-m-top_x-small">
+                                        <li>Connected App Name: <code class="code-inline">API Version Updater</code>
+                                            <lightning-button-icon 
+                                                icon-name="utility:copy" 
+                                                alternative-text="Copy"
+                                                data-text="API Version Updater"
+                                                onclick={handleCopyText}
+                                                size="x-small"
+                                                class="slds-m-left_xx-small">
+                                            </lightning-button-icon>
+                                        </li>
+                                        <li>API Name: <code class="code-inline">API_Version_Updater</code></li>
+                                        <li>Contact Email: Your email address</li>
+                                    </ul>
+                                </li>
+                                <li class="slds-m-bottom_small">
+                                    Enable OAuth Settings:
+                                    <ul class="slds-list_dotted slds-m-left_medium slds-m-top_x-small">
+                                        <li>Check <strong>Enable OAuth Settings</strong></li>
+                                        <li>Callback URL: <code class="code-inline">{callbackUrl}</code>
+                                            <lightning-button-icon 
+                                                icon-name="utility:copy" 
+                                                alternative-text="Copy"
+                                                data-text={callbackUrl}
+                                                onclick={handleCopyText}
+                                                size="x-small"
+                                                class="slds-m-left_xx-small">
+                                            </lightning-button-icon>
+                                        </li>
+                                        <li>Selected OAuth Scopes:
+                                            <ul class="slds-list_dotted slds-m-left_medium">
+                                                <li>Access the Tooling API (api)</li>
+                                                <li>Manage user data via APIs (api)</li>
+                                                <li>Perform requests at any time (refresh_token, offline_access)</li>
+                                            </ul>
+                                        </li>
+                                    </ul>
+                                </li>
+                                <li class="slds-m-bottom_small">Check <strong>Enable for Device Flow</strong> (recommended)</li>
+                                <li class="slds-m-bottom_small">Click <strong>Save</strong></li>
+                                <li class="slds-m-bottom_small">After saving, copy the <strong>Consumer Key</strong> and <strong>Consumer Secret</strong> for the next step</li>
+                            </ol>
+                        </div>
+
+                        <div class="slds-m-top_medium slds-text-align_right">
+                            <lightning-button label="Refresh Status" onclick={handleRefresh} class="slds-m-right_small"></lightning-button>
+                            <lightning-button label="Next: Configure Named Credential" variant="brand" data-step="2" onclick={handleGoToStep}></lightning-button>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- Step 2: Configure Named Credential -->
+                <template lwc:if={showStep2}>
+                    <div class="step-content">
+                        <h2 class="slds-text-heading_medium slds-m-bottom_small">
+                            <lightning-icon icon-name="utility:key" size="small" class="slds-m-right_x-small"></lightning-icon>
+                            Step 2: Configure Named Credential
+                        </h2>
+                        <p class="slds-text-body_regular slds-m-bottom_medium">
+                            Configure the Named Credential to connect to your org's Tooling API.
+                        </p>
+                        
+                        <div class="instruction-box">
+                            <h3 class="slds-text-heading_small slds-m-bottom_small">2a. Configure External Credential</h3>
+                            <ol class="slds-list_ordered">
+                                <li class="slds-m-bottom_small">
+                                    <lightning-button 
+                                        label="Open External Credentials in Setup" 
+                                        icon-name="utility:new_window"
+                                        data-url={externalCredentialsUrl}
+                                        onclick={handleOpenSetup}
+                                        variant="brand">
+                                    </lightning-button>
+                                </li>
+                                <li class="slds-m-bottom_small">Find <strong>API Version Updater</strong> and click to edit</li>
+                                <li class="slds-m-bottom_small">
+                                    Under Authentication Protocol, configure OAuth 2.0:
+                                    <ul class="slds-list_dotted slds-m-left_medium slds-m-top_x-small">
+                                        <li>Authentication Protocol: <strong>OAuth 2.0</strong></li>
+                                        <li>Authentication Flow Type: <strong>Browser Flow</strong></li>
+                                        <li>Identity Provider URL: <code class="code-inline">{orgDomain}</code></li>
+                                        <li>Scope: <code class="code-inline">api refresh_token</code></li>
+                                    </ul>
+                                </li>
+                                <li class="slds-m-bottom_small">Add the Consumer Key and Consumer Secret from your Connected App</li>
+                                <li class="slds-m-bottom_small">Click <strong>Save</strong></li>
+                            </ol>
+
+                            <h3 class="slds-text-heading_small slds-m-bottom_small slds-m-top_medium">2b. Configure Named Credential URL</h3>
+                            <ol class="slds-list_ordered">
+                                <li class="slds-m-bottom_small">
+                                    <lightning-button 
+                                        label="Open Named Credentials in Setup" 
+                                        icon-name="utility:new_window"
+                                        data-url={namedCredentialsUrl}
+                                        onclick={handleOpenSetup}
+                                        variant="brand">
+                                    </lightning-button>
+                                </li>
+                                <li class="slds-m-bottom_small">Find <strong>API Version Updater Tooling API</strong> and click to edit</li>
+                                <li class="slds-m-bottom_small">
+                                    Set the URL to your org domain: <code class="code-inline">{orgDomain}</code>
+                                    <lightning-button-icon 
+                                        icon-name="utility:copy" 
+                                        alternative-text="Copy"
+                                        data-text={orgDomain}
+                                        onclick={handleCopyText}
+                                        size="x-small"
+                                        class="slds-m-left_xx-small">
+                                    </lightning-button-icon>
+                                </li>
+                                <li class="slds-m-bottom_small">Click <strong>Save</strong></li>
+                            </ol>
+                        </div>
+
+                        <div class="slds-m-top_medium slds-text-align_right">
+                            <lightning-button label="Back" data-step="1" onclick={handleGoToStep} class="slds-m-right_small"></lightning-button>
+                            <lightning-button label="Refresh Status" onclick={handleRefresh} class="slds-m-right_small"></lightning-button>
+                            <lightning-button label="Next: Authenticate" variant="brand" data-step="3" onclick={handleGoToStep}></lightning-button>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- Step 3: User Authentication -->
+                <template lwc:if={showStep3}>
+                    <div class="step-content">
+                        <h2 class="slds-text-heading_medium slds-m-bottom_small">
+                            <lightning-icon icon-name="utility:identity" size="small" class="slds-m-right_x-small"></lightning-icon>
+                            Step 3: Authenticate Your User
+                        </h2>
+                        <p class="slds-text-body_regular slds-m-bottom_medium">
+                            Each user needs to authenticate once with the Named Credential.
+                        </p>
+                        
+                        <div class="instruction-box">
+                            <ol class="slds-list_ordered">
+                                <li class="slds-m-bottom_small">
+                                    <lightning-button 
+                                        label="Open Permission Sets in Setup" 
+                                        icon-name="utility:new_window"
+                                        data-url={permissionSetsUrl}
+                                        onclick={handleOpenSetup}
+                                        variant="brand">
+                                    </lightning-button>
+                                </li>
+                                <li class="slds-m-bottom_small">Find and click <strong>API Version Updater API Access</strong></li>
+                                <li class="slds-m-bottom_small">Click <strong>Manage Assignments</strong> and assign it to yourself (and other users who need access)</li>
+                                <li class="slds-m-bottom_small">
+                                    <lightning-button 
+                                        label="Open External Credentials in Setup" 
+                                        icon-name="utility:new_window"
+                                        data-url={externalCredentialsUrl}
+                                        onclick={handleOpenSetup}
+                                        variant="brand">
+                                    </lightning-button>
+                                </li>
+                                <li class="slds-m-bottom_small">Click <strong>API Version Updater</strong></li>
+                                <li class="slds-m-bottom_small">Under <strong>User External Credentials</strong>, click your username or <strong>New</strong></li>
+                                <li class="slds-m-bottom_small">Click <strong>Authenticate</strong> and complete the OAuth flow in the popup</li>
+                            </ol>
+                        </div>
+
+                        <div class="slds-m-top_medium slds-text-align_right">
+                            <lightning-button label="Back" data-step="2" onclick={handleGoToStep} class="slds-m-right_small"></lightning-button>
+                            <lightning-button label="Check Authentication Status" onclick={handleRefresh} variant="brand"></lightning-button>
+                        </div>
+                    </div>
+                </template>
+
+                <!-- Step 4: Complete -->
+                <template lwc:if={showStep4}>
+                    <div class="step-content">
+                        <div class="success-box slds-text-align_center">
+                            <lightning-icon icon-name="utility:success" size="large" variant="success"></lightning-icon>
+                            <h2 class="slds-text-heading_medium slds-m-top_medium">Setup Complete!</h2>
+                            <p class="slds-text-body_regular slds-m-top_small">
+                                API Version Updater is fully configured and ready to use.
+                            </p>
+                            <p class="slds-text-body_small slds-text-color_weak slds-m-top_x-small">
+                                The Tooling API connection is active and authenticated.
+                            </p>
+                            <div class="slds-m-top_large">
+                                <lightning-button 
+                                    label="Start Using API Version Updater" 
+                                    variant="brand"
+                                    onclick={handleSetupComplete}>
+                                </lightning-button>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
+            </template>
+        </div>
+    </lightning-card>
+</template>

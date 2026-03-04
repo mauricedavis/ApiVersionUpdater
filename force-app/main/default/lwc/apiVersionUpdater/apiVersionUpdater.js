@@ -1,6 +1,7 @@
 import { LightningElement, track, wire } from 'lwc';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 
+import checkSetupStatus from '@salesforce/apex/ToolingApiService.checkSetupStatus';
 import getOrgContext from '@salesforce/apex/ApiVersionUpdaterController.getOrgContext';
 import getSettings from '@salesforce/apex/ApiVersionUpdaterController.getSettings';
 import saveSettings from '@salesforce/apex/ApiVersionUpdaterController.saveSettings';
@@ -66,6 +67,8 @@ export default class ApiVersionUpdater extends LightningElement {
     @track activeScanSubTab = 'current';
     @track showSettingsModal = false;
     @track activeView = 'dashboard';
+    @track setupStatus = null;
+    @track showSetupWizard = false;
 
     apiVersions = [];
     componentTypes = [];
@@ -345,6 +348,21 @@ export default class ApiVersionUpdater extends LightningElement {
 
         try {
             console.log('Starting loadInitialData...');
+            
+            // Check setup status first
+            try {
+                this.setupStatus = await checkSetupStatus();
+                console.log('Setup status:', this.setupStatus);
+                
+                if (!this.setupStatus.isConfigured) {
+                    this.showSetupWizard = true;
+                    this.isLoading = false;
+                    return;
+                }
+            } catch (setupErr) {
+                console.warn('Setup status check failed, continuing with app load:', setupErr);
+                this.setupStatus = { isConfigured: false, setupMessage: 'Unable to verify setup status' };
+            }
             
             const [orgCtx, savedSettings, versions, types, counts, scans, sessionData] = await Promise.all([
                 getOrgContext(),
@@ -1255,5 +1273,55 @@ export default class ApiVersionUpdater extends LightningElement {
                 backupPanel.showBackupTab();
             }
         }, 100);
+    }
+
+    handleSetupComplete() {
+        this.showSetupWizard = false;
+        this.loadInitialData();
+    }
+
+    handleSetupSkipped() {
+        this.showSetupWizard = false;
+        this.showToast('Setup Skipped', 'Some features may not work without proper setup. You can access setup later from Settings.', 'warning');
+        this.loadInitialDataWithoutSetupCheck();
+    }
+
+    async loadInitialDataWithoutSetupCheck() {
+        this.isLoading = true;
+        this.error = null;
+
+        try {
+            const [orgCtx, savedSettings, versions, types, counts, scans, sessionData] = await Promise.all([
+                getOrgContext(),
+                getSettings(),
+                getAvailableApiVersions(),
+                getSupportedComponentTypes(),
+                getInventoryCounts(),
+                getRecentScans({ limitCount: 10, cacheBuster: Date.now() }),
+                getCurrentSession()
+            ]);
+
+            this.orgContext = orgCtx;
+            this.settings = { ...this.settings, ...savedSettings };
+            this.apiVersions = versions;
+            this.componentTypes = types;
+            this.inventoryCounts = counts;
+            this.recentScans = scans;
+            this.session = sessionData;
+
+            await this.loadVersionDistribution('ApexClass');
+            await this.loadComplianceMetrics();
+            await this.restoreSessionState();
+
+        } catch (err) {
+            this.error = this.extractErrorMessage(err);
+            console.error('Error loading data:', err);
+        } finally {
+            this.isLoading = false;
+        }
+    }
+
+    get showMainApp() {
+        return !this.showSetupWizard && !this.isLoading;
     }
 }

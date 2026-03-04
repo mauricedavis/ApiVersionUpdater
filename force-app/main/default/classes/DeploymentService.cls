@@ -427,33 +427,10 @@ public with sharing class DeploymentService {
         }
         
         public String createContainer() {
-            String endpoint = URL.getOrgDomainUrl().toExternalForm() + 
-                '/services/data/v65.0/tooling/sobjects/MetadataContainer';
-            
-            Map<String, Object> container = new Map<String, Object>{
-                'Name' => 'Validate_' + System.currentTimeMillis()
-            };
-            
-            HttpRequest req = new HttpRequest();
-            req.setEndpoint(endpoint);
-            req.setMethod('POST');
-            req.setHeader('Authorization', 'Bearer ' + UserInfo.getSessionId());
-            req.setHeader('Content-Type', 'application/json');
-            req.setBody(JSON.serialize(container));
-            
-            Http http = new Http();
-            HttpResponse res = http.send(req);
-            
-            if (res.getStatusCode() == 201) {
-                Map<String, Object> result = (Map<String, Object>) JSON.deserializeUntyped(res.getBody());
-                return (String) result.get('id');
-            }
-            
-            throw new DeploymentException('Failed to create validation container: ' + res.getBody());
+            return ToolingApiService.createMetadataContainer('Validate_' + System.currentTimeMillis());
         }
         
         public void addMember(String containerId, String artifactType, String fullName, Decimal targetVersion) {
-            String memberType = getMemberType(artifactType);
             String contentEntityId = getContentEntityId(artifactType, fullName);
             
             if (String.isBlank(contentEntityId)) {
@@ -466,31 +443,16 @@ public with sharing class DeploymentService {
                 throw new DeploymentException('Could not retrieve body for: ' + fullName);
             }
             
-            String endpoint = URL.getOrgDomainUrl().toExternalForm() + 
-                '/services/data/v65.0/tooling/sobjects/' + memberType;
-            
             Map<String, Object> metadata = buildMetadataForType(artifactType, targetVersion, fullName);
             
-            Map<String, Object> member = new Map<String, Object>{
-                'MetadataContainerId' => containerId,
-                'ContentEntityId' => contentEntityId,
-                'Body' => currentBody,
-                'Metadata' => metadata
-            };
-            
-            HttpRequest req = new HttpRequest();
-            req.setEndpoint(endpoint);
-            req.setMethod('POST');
-            req.setHeader('Authorization', 'Bearer ' + UserInfo.getSessionId());
-            req.setHeader('Content-Type', 'application/json');
-            req.setBody(JSON.serialize(member));
-            
-            Http http = new Http();
-            HttpResponse res = http.send(req);
-            
-            if (res.getStatusCode() != 201) {
-                String errorMsg = parseErrorMessage(res.getBody());
-                throw new DeploymentException('Add member failed: ' + errorMsg);
+            if (artifactType == 'ApexClass') {
+                ToolingApiService.addClassMember(containerId, contentEntityId, currentBody, metadata);
+            } else if (artifactType == 'ApexTrigger') {
+                ToolingApiService.addTriggerMember(containerId, contentEntityId, currentBody, metadata);
+            } else if (artifactType == 'ApexPage') {
+                ToolingApiService.addPageMember(containerId, contentEntityId, currentBody, metadata);
+            } else if (artifactType == 'ApexComponent') {
+                ToolingApiService.addComponentMember(containerId, contentEntityId, currentBody, metadata);
             }
         }
         
@@ -580,67 +542,15 @@ public with sharing class DeploymentService {
         }
         
         public String deployForValidation(String containerId) {
-            String endpoint = URL.getOrgDomainUrl().toExternalForm() + 
-                '/services/data/v65.0/tooling/sobjects/ContainerAsyncRequest';
-            
-            Map<String, Object> asyncRequest = new Map<String, Object>{
-                'MetadataContainerId' => containerId,
-                'IsCheckOnly' => true,
-                'IsRunTests' => false
-            };
-            
-            HttpRequest req = new HttpRequest();
-            req.setEndpoint(endpoint);
-            req.setMethod('POST');
-            req.setHeader('Authorization', 'Bearer ' + UserInfo.getSessionId());
-            req.setHeader('Content-Type', 'application/json');
-            req.setBody(JSON.serialize(asyncRequest));
-            
-            Http http = new Http();
-            HttpResponse res = http.send(req);
-            
-            if (res.getStatusCode() == 201) {
-                Map<String, Object> result = (Map<String, Object>) JSON.deserializeUntyped(res.getBody());
-                return (String) result.get('id');
-            }
-            
-            throw new DeploymentException('Failed to start validation: ' + res.getBody());
+            return ToolingApiService.deployContainer(containerId, true, false);
         }
         
         public Map<String, Object> pollAndGetResults(String asyncRequestId) {
-            String endpoint = URL.getOrgDomainUrl().toExternalForm() + 
-                '/services/data/v65.0/tooling/sobjects/ContainerAsyncRequest/' + asyncRequestId;
-            
-            Integer maxAttempts = 30;
-            Integer attempt = 0;
-            String status = 'Queued';
+            String status = ToolingApiService.pollForCompletion(asyncRequestId, 30);
             String errorDetail = '';
             
-            while (attempt < maxAttempts && (status == 'Queued' || status == 'Pending')) {
-                HttpRequest req = new HttpRequest();
-                req.setEndpoint(endpoint);
-                req.setMethod('GET');
-                req.setHeader('Authorization', 'Bearer ' + UserInfo.getSessionId());
-                req.setHeader('Content-Type', 'application/json');
-                
-                Http http = new Http();
-                HttpResponse res = http.send(req);
-                
-                if (res.getStatusCode() == 200) {
-                    Map<String, Object> result = (Map<String, Object>) JSON.deserializeUntyped(res.getBody());
-                    status = (String) result.get('State');
-                    
-                    if (status == 'Failed' || status == 'Error') {
-                        errorDetail = (String) result.get('ErrorMsg');
-                        break;
-                    }
-                    
-                    if (status == 'Completed') {
-                        break;
-                    }
-                }
-                
-                attempt++;
+            if (status == 'Failed' || status == 'Error') {
+                errorDetail = ToolingApiService.getContainerErrorDetails(asyncRequestId);
             }
             
             return new Map<String, Object>{
@@ -653,25 +563,13 @@ public with sharing class DeploymentService {
             Map<String, String> componentErrors = new Map<String, String>();
             
             try {
-                String endpoint = URL.getOrgDomainUrl().toExternalForm() + 
-                    '/services/data/v65.0/tooling/query/?q=' +
-                    EncodingUtil.urlEncode(
-                        'SELECT ContentEntity.Name, CompilerErrors FROM ApexClassMember ' +
-                        'WHERE MetadataContainerId IN (SELECT MetadataContainerId FROM ContainerAsyncRequest WHERE Id = \'' + asyncRequestId + '\')',
-                        'UTF-8'
-                    );
+                String soql = 'SELECT ContentEntity.Name, CompilerErrors FROM ApexClassMember ' +
+                    'WHERE MetadataContainerId IN (SELECT MetadataContainerId FROM ContainerAsyncRequest WHERE Id = \'' + asyncRequestId + '\')';
                 
-                HttpRequest req = new HttpRequest();
-                req.setEndpoint(endpoint);
-                req.setMethod('GET');
-                req.setHeader('Authorization', 'Bearer ' + UserInfo.getSessionId());
-                req.setHeader('Content-Type', 'application/json');
+                ToolingApiService.ApiResponse res = ToolingApiService.doQuery(soql);
                 
-                Http http = new Http();
-                HttpResponse res = http.send(req);
-                
-                if (res.getStatusCode() == 200) {
-                    Map<String, Object> queryResult = (Map<String, Object>) JSON.deserializeUntyped(res.getBody());
+                if (res.isSuccess) {
+                    Map<String, Object> queryResult = (Map<String, Object>) JSON.deserializeUntyped(res.body);
                     List<Object> records = (List<Object>) queryResult.get('records');
                     
                     if (records != null) {
