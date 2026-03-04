@@ -112,8 +112,12 @@ export default class SetupWizard extends LightningElement {
         return `${this.orgDomain}/lightning/setup/SetupOneHome/home`;
     }
 
-    get connectedAppsUrl() {
-        return `${this.orgDomain}/lightning/setup/ConnectedApplication/home`;
+    get appManagerUrl() {
+        return `${this.orgDomain}/lightning/setup/NavigationMenus/home`;
+    }
+
+    get newConnectedAppUrl() {
+        return `${this.orgDomain}/lightning/setup/ConnectedApplication/new`;
     }
 
     get namedCredentialsUrl() {

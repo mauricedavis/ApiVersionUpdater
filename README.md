@@ -106,20 +106,23 @@ After deployment, you need to configure Named Credentials for the Tooling API in
 
 #### Step 1: Create a Connected App
 
-1. Go to **Setup > App Manager > New Connected App**
-2. Fill in the Basic Information:
+1. Go to **Setup**, then search for **App Manager** in Quick Find
+2. Click **App Manager** (under Apps)
+3. Click **New Connected App** button in the top-right corner
+   > **Note**: Do NOT go to "Manage Connected Apps" - that page is for managing existing apps, not creating new ones
+4. Fill in the Basic Information:
    - **Connected App Name**: `API Version Updater`
    - **API Name**: `API_Version_Updater`
    - **Contact Email**: Your email address
-3. Enable OAuth Settings:
+5. Enable OAuth Settings:
    - Check **Enable OAuth Settings**
    - **Callback URL**: `https://YOUR_ORG_DOMAIN/services/authcallback/API_Version_Updater`
    - **Selected OAuth Scopes**:
      - Access the Tooling API (api)
      - Manage user data via APIs (api)
      - Perform requests at any time (refresh_token, offline_access)
-4. Check **Enable for Device Flow** (recommended)
-5. Click **Save** and note the Consumer Key and Consumer Secret
+6. Check **Enable for Device Flow** (recommended)
+7. Click **Save** and note the Consumer Key and Consumer Secret
 
 #### Step 2: Create External Credential
 

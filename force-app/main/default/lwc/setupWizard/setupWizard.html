@@ -63,14 +63,17 @@
                             <ol class="slds-list_ordered">
                                 <li class="slds-m-bottom_small">
                                     <lightning-button 
-                                        label="Open Connected Apps in Setup" 
+                                        label="Open App Manager in Setup" 
                                         icon-name="utility:new_window"
-                                        data-url={connectedAppsUrl}
+                                        data-url={appManagerUrl}
                                         onclick={handleOpenSetup}
                                         variant="brand">
                                     </lightning-button>
+                                    <p class="slds-text-body_small slds-text-color_weak slds-m-top_xx-small">
+                                        <em>Note: Go to Setup → App Manager (not "Manage Connected Apps")</em>
+                                    </p>
                                 </li>
-                                <li class="slds-m-bottom_small">Click <strong>New Connected App</strong></li>
+                                <li class="slds-m-bottom_small">Click <strong>New Connected App</strong> button in the top-right corner</li>
                                 <li class="slds-m-bottom_small">
                                     Fill in Basic Information:
                                     <ul class="slds-list_dotted slds-m-left_medium slds-m-top_x-small">
